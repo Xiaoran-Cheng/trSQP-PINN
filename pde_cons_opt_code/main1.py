@@ -96,7 +96,7 @@ visual = Visualization(current_dir)
 
 ####################################### config for SQP #######################################
 qp = EqualityConstrainedQP()
-SQP_num_iter = 300
+SQP_num_iter = 500
 hessian_param = 1.0
 init_stepsize = 1.0
 line_search_tol = 0.001

@@ -37,8 +37,8 @@ from multiprocessing import Pool
 
 
 #######################################config for data#######################################
-# beta_list = [10**-4, 30]
-beta_list = [10**-4]
+beta_list = [10**-4, 30]
+# beta_list = [30]
 N=100
 M=100
 data_key_num = 1000
@@ -102,7 +102,7 @@ hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
 line_search_max_iter = 30
-line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
+line_search_condition = "strong-wolfe"  # armijo, goldstein, strong-wolfe or wolfe.
 line_search_decrease_factor = 0.8
 group_labels = list(range(1,2*M+1)) * 2
 ####################################### config for SQP #######################################
@@ -122,12 +122,12 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'New_Augmented_Lag_experiment',\  #问题
 #                     'Fletcher_Penalty_experiment', \  #问题
 #                     'SQP_experiment']:
-for experiment in ['PINN_experiment']:
+for experiment in ['SQP_experiment']:
 
-    # for activation_input in ['sin', \
-    #                         'tanh', \
-    #                         'cos']:
-    for activation_input in ['tanh']:
+    for activation_input in ['sin', \
+                            'tanh', \
+                            'cos']:
+    # for activation_input in ['tanh']:
 
         if activation_input == "sin":
             activation = jnp.sin

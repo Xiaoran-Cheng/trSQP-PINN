@@ -38,7 +38,7 @@ from multiprocessing import Pool
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [30]
+beta_list = [10**-4]
 N=100
 M=100
 data_key_num = 1000
@@ -64,7 +64,8 @@ eval_dataloader = DataLoader(Data=eval_Datas)
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-features = [10, 10, 10, 10, 1]
+# features = [10, 10, 10, 10, 1]
+features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
 # features = [2, 3, 1]
 ####################################### config for NN #######################################
 
@@ -83,7 +84,7 @@ alpha = 150 # for New_Augmented_Lag_experiment
 
 
 ####################################### config for Adam #######################################
-uncons_optim_num_echos = 3000
+uncons_optim_num_echos = 2000
 uncons_optim_learning_rate = 0.01
 cons_violation = 10 # threshold for updating penalty param
 ####################################### config for Adam #######################################
@@ -96,11 +97,11 @@ visual = Visualization(current_dir)
 
 ####################################### config for SQP #######################################
 qp = EqualityConstrainedQP()
-SQP_num_iter = 500
-hessian_param = 1.0
+SQP_num_iter = 100
+hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
-line_search_max_iter = 100
+line_search_max_iter = 30
 line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
 line_search_decrease_factor = 0.8
 group_labels = list(range(1,2*M+1)) * 2
@@ -121,7 +122,7 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'New_Augmented_Lag_experiment',\  #问题
 #                     'Fletcher_Penalty_experiment', \  #问题
 #                     'SQP_experiment']:
-for experiment in ['SQP_experiment']:
+for experiment in ['PINN_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \

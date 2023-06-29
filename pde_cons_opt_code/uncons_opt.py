@@ -10,16 +10,20 @@ from tqdm.notebook import tqdm
 import pandas as pd
 from flax.core.frozen_dict import unfreeze
 # from tqdm import tqdm
-# import jaxopt
+import numpy as np
 
-# from flat_params import FlatParams
 
 class Optim:
-    def __init__(self, model, Loss, cons_violation, panalty_param_upper_bound) -> None:
+    def __init__(self, model, Loss, panalty_param_upper_bound) -> None:
         self.model = model
         self.Loss = Loss
-        self.cons_violation = cons_violation
+        # self.cons_violation = cons_violation
         self.panalty_param_upper_bound = panalty_param_upper_bound
+
+
+    def check_converge(self, grad_loss):
+        return np.square(np.linalg.norm(np.concatenate(pd.DataFrame.from_dict(unfreeze(grad_loss["params"])).\
+                        applymap(lambda x: x.flatten()).values.flatten()),ord=2))
 
 
     def update(self, opt, grads, optim_object):
@@ -31,7 +35,7 @@ class Optim:
 
     def adam_update(self, params, num_echos, learning_rate, \
                     penalty_param, penalty_param_update_factor, experiment, \
-                    mul, params_mul, mul_num_echos, alpha):
+                    mul, mul_num_echos, alpha):
         
         opt = optax.adam(learning_rate)
         loss_list = []
@@ -43,28 +47,31 @@ class Optim:
 
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, updated_mul, penalty_param)
                 eq_cons = self.Loss.eq_cons(params)
-                eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
-                if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                    penalty_param = penalty_param_update_factor * penalty_param
+                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
+                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
+                #     penalty_param = penalty_param_update_factor * penalty_param
                 params = self.update(opt=opt, grads= grads, optim_object=params)
                 loss_list.append(l)
+
+            grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, updated_mul, penalty_param))
 
         elif experiment == "Augmented_Lag_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
                 eq_cons = self.Loss.eq_cons(params)
-                eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
+                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
                 mul = mul + penalty_param * eq_cons
-                if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                    penalty_param = penalty_param_update_factor * penalty_param
+                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
+                #     penalty_param = penalty_param_update_factor * penalty_param
                 params = self.update(opt=opt, grads= grads, optim_object=params)
                 loss_list.append(l)
+            grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, mul, penalty_param))
 
         elif experiment == "New_Augmented_Lag_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param, alpha)
                 eq_cons = self.Loss.eq_cons(params)
-                eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
+                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
 
                 Ax_pinv = -pd.DataFrame.from_dict(unfreeze(jacfwd(self.Loss.eq_cons, 0)(params)["params"])).\
                             applymap(lambda x: jnp.transpose(jnp.linalg.pinv(x), \
@@ -73,31 +80,34 @@ class Optim:
                 gx = pd.DataFrame.from_dict(unfreeze(jacfwd(self.Loss.l_k, 0)(params)["params"])).values.flatten()
                 Ax_pinv_gx = lambda x, y: (x * y).sum(axis=(1,2)) if y.ndim == 3 else (x * y).sum(axis=1)
                 mul = jnp.array(list(map(Ax_pinv_gx, gx, Ax_pinv))).sum(axis=0)
-                if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                    penalty_param = penalty_param_update_factor * penalty_param
+                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
+                #     penalty_param = penalty_param_update_factor * penalty_param
                 params = self.update(opt=opt, grads= grads, optim_object=params)
                 loss_list.append(l)
+            grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, mul, penalty_param, alpha))
 
         elif experiment == "Fletcher_Penalty_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
                 eq_cons = self.Loss.eq_cons(params)
-                eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
-                if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                    penalty_param = penalty_param_update_factor * penalty_param
+                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
+                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
+                #     penalty_param = penalty_param_update_factor * penalty_param
                 params = self.update(opt=opt, grads= grads, optim_object=params)
                 loss_list.append(l)
+            grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, penalty_param))
 
         else:
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
                 params = self.update(opt=opt, grads = grads, optim_object=params)
                 eq_cons = self.Loss.eq_cons(params)
-                eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
-                if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                    penalty_param = penalty_param_update_factor * penalty_param
+                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
+                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
+                #     penalty_param = penalty_param_update_factor * penalty_param
                 loss_list.append(l)
-        return params, jnp.array(loss_list)
+            grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, 1))
+        return params, jnp.array(loss_list), grad_loss
 
 
     # def LBFGS_update(self, params, maxiter, linesearch, penalty_param):
@@ -113,5 +123,7 @@ class Optim:
         absolute_error = 1/N * jnp.linalg.norm(u_theta-ui, ord = 2)
         l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
+    
+
     
     

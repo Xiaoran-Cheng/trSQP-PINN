@@ -29,6 +29,7 @@ import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
 from jaxopt import EqualityConstrainedQP
+import jax.numpy as jnp
 
 from multiprocessing import Pool
 
@@ -70,8 +71,13 @@ features = [2, 3, 1]
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 1
-penalty_param = 1
+penalty_param_update_factor = 2
+init_penalty_param = 1
+panalty_param_upper_bound = 150
+converge_tol = 0.001
+uncons_optim_num_echos = 200
+uncons_optim_learning_rate = 0.001
+# cons_violation = 0.001 # threshold for updating penalty param
 ####################################### config for penalty param #######################################
 
 
@@ -80,14 +86,6 @@ mul = jnp.ones(2*M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_exper
 mul_num_echos = 10 # for Pillo_Penalty_experiment
 alpha = 150 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
-
-
-####################################### config for Adam #######################################
-uncons_optim_num_echos = 2000
-uncons_optim_learning_rate = 0.001
-cons_violation = 0.001 # threshold for updating penalty param
-panalty_param_upper_bound = 150
-####################################### config for Adam #######################################
 
 
 ####################################### visualization #######################################
@@ -122,7 +120,7 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'Fletcher_Penalty_experiment', \  
 #                     'SQP_experiment']:
 # for experiment in ['PINN_experiment',"l1_Penalty_experiment",'l2_Penalty_experiment','linfinity_Penalty_experiment','Cubic_Penalty_experiment']:
-for experiment in ['Augmented_Lag_experiment']:
+for experiment in ['l1_Penalty_experiment']:
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
@@ -144,6 +142,8 @@ for experiment in ['Augmented_Lag_experiment']:
 
         absolute_error_list = []
         l2_relative_error_list = []
+
+        
         for beta in beta_list:
 
             data, sample_data, IC_sample_data, ui = dataloader.get_data(\
@@ -152,61 +152,71 @@ for experiment in ['Augmented_Lag_experiment']:
 
             model = NN(features=features, activation=activation)
             params = model.init_params(key=key, data=data)
-            params_mul = [params, mul]
 
             eval_data, _, _, eval_ui = eval_dataloader.get_data(x_data_min, x_data_max, \
             t_data_min, t_data_max, x_sample_min, x_sample_max, t_sample_min, \
             t_sample_max, beta, M)
 
-            if experiment == "SQP_experiment":
-                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta)
-                sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
-                updated_params, loss_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
-                                            line_search_max_iter, line_search_condition, \
-                                                line_search_decrease_factor, init_stepsize, line_search_tol)
 
-                absolute_error, l2_relative_error, eval_u_theta = \
-                    sqp_optim.evaluation(updated_params, N, eval_data, eval_ui[0])
-                
-            else:
-                if experiment == "PINN_experiment":
-                    loss = PINN(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "l1_Penalty_experiment":
-                    loss = l1Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "l2_Penalty_experiment":
-                    loss = l2Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "linfinity_Penalty_experiment":
-                    loss = linfinityPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "Cubic_Penalty_experiment":
-                    loss = CubicPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "Augmented_Lag_experiment":
-                    loss = AugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "Pillo_Penalty_experiment":
-                    loss = PilloPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "New_Augmented_Lag_experiment":
-                    loss = NewAugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "Fletcher_Penalty_experiment":
-                    loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                
-                optim = Optim(model, loss, cons_violation, panalty_param_upper_bound)
-                updated_params, loss_list = optim.adam_update(params, \
-                                                        uncons_optim_num_echos, uncons_optim_learning_rate, \
-                                                        penalty_param, penalty_param_update_factor, \
-                                                        experiment, mul, params_mul, mul_num_echos, alpha)
+            penalty_param = init_penalty_param
+            total_loss_list = []
+            while penalty_param < panalty_param_upper_bound:
+                if experiment == "SQP_experiment":
+                    optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta)
+                    sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
+                    params, loss_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
+                                                line_search_max_iter, line_search_condition, \
+                                                    line_search_decrease_factor, init_stepsize, line_search_tol)
 
+                    # absolute_error, l2_relative_error, eval_u_theta = \
+                    #     sqp_optim.evaluation(params, N, eval_data, eval_ui[0])
+                    
+                else:
+                    if experiment == "PINN_experiment":
+                        loss = PINN(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "l1_Penalty_experiment":
+                        loss = l1Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "l2_Penalty_experiment":
+                        loss = l2Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "linfinity_Penalty_experiment":
+                        loss = linfinityPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "Cubic_Penalty_experiment":
+                        loss = CubicPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "Augmented_Lag_experiment":
+                        loss = AugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "Pillo_Penalty_experiment":
+                        loss = PilloPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "New_Augmented_Lag_experiment":
+                        loss = NewAugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    elif experiment == "Fletcher_Penalty_experiment":
+                        loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                    N, M)
+                    
+                    optim = Optim(model, loss, panalty_param_upper_bound)
+                    params, loss_list, grad_loss = optim.adam_update(params, \
+                                                            uncons_optim_num_echos, uncons_optim_learning_rate, \
+                                                            penalty_param, penalty_param_update_factor, \
+                                                            experiment, mul, mul_num_echos, alpha)
+                    
+                    penalty_param = penalty_param_update_factor * penalty_param
+                    print(grad_loss, penalty_param)
+                    if grad_loss < converge_tol:
+                        break
+                    
+                total_loss_list.append(loss_list)
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
-                                                updated_params, N, eval_data, eval_ui[0])
+                                                params, N, eval_data, eval_ui[0])
                 
-            visual.line_graph(loss_list, "/{activation_name}/Total_Loss".\
+            total_loss_list = jnp.concatenate(jnp.array(total_loss_list))
+            visual.line_graph(total_loss_list, "/{activation_name}/Total_Loss".\
                 format(activation_name=activation_name), experiment=experiment, beta=beta)
             visual.line_graph(eval_ui[0], "/{activation_name}/True_sol".\
                     format(activation_name=activation_name), experiment=experiment, beta=beta)
@@ -220,7 +230,7 @@ for experiment in ['Augmented_Lag_experiment']:
             absolute_error_list.append(absolute_error)
             l2_relative_error_list.append(l2_relative_error)
 
-            print("last loss: "+str(loss_list[-1]))
+            print("last loss: "+str(total_loss_list[-1]))
             print("absolute_error: " + str(absolute_error))
             print("l2_relative_error: " + str(l2_relative_error))
 

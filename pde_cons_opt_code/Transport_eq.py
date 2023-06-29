@@ -6,7 +6,8 @@ class Transport_eq:
 
 
     def solution(self, x, t):
-        u = jnp.sin(x - self.beta*t)
+        # u = jnp.sin(x - self.beta*t)
+        u = x - self.beta*t
         return u
     
 

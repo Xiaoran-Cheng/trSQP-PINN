@@ -11,7 +11,6 @@ from PINN_experiment.optim_PINN import PINN
 from l1_Penalty_experiment.optim_l1_penalty import l1Penalty
 from l2_Penalty_experiment.optim_l2_penalty import l2Penalty
 from linfinity_Penalty_experiment.optim_linfinity_penalty import linfinityPenalty
-from Han_Penalty_experiment.optim_han_penalty import HanPenalty
 from Cubic_Penalty_experiment.optim_cubic_penalty import CubicPenalty
 from Augmented_Lag_experiment.optim_aug_lag import AugLag
 from Pillo_Penalty_experiment.optim_pillo_penalty import PilloPenalty
@@ -37,10 +36,10 @@ from multiprocessing import Pool
 
 
 #######################################config for data#######################################
-beta_list = [10**-4, 30]
-# beta_list = [30]
+# beta_list = [10**-4, 30]
+beta_list = [10**-4]
 N=100
-M=100
+M=5
 data_key_num = 1000
 dim = 2
 Datas = Data(N=N, M=M, key_num=data_key_num, dim=dim)
@@ -65,8 +64,8 @@ eval_dataloader = DataLoader(Data=eval_Datas)
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [10, 10, 10, 10, 1]
-features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-# features = [2, 3, 1]
+# features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 
@@ -77,7 +76,7 @@ penalty_param = 1
 
 
 ####################################### config for lagrange multiplier #######################################
-mul = jnp.ones(2*M) # initial  for Han_penalty_experiment, Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
+mul = jnp.ones(2*M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
 mul_num_echos = 10 # for Pillo_Penalty_experiment
 alpha = 150 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
@@ -85,8 +84,9 @@ alpha = 150 # for New_Augmented_Lag_experiment
 
 ####################################### config for Adam #######################################
 uncons_optim_num_echos = 2000
-uncons_optim_learning_rate = 0.01
-cons_violation = 10 # threshold for updating penalty param
+uncons_optim_learning_rate = 0.001
+cons_violation = 0.001 # threshold for updating penalty param
+panalty_param_upper_bound = 150
 ####################################### config for Adam #######################################
 
 
@@ -116,18 +116,17 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'l2_Penalty_experiment', \
 #                     'linfinity_Penalty_experiment', \
 #                     'Cubic_Penalty_experiment', \
-#                     'Han_penalty_experiment', \
-#                     'Augmented_Lag_experiment', \    #得有increase penalty param
+#                     'Augmented_Lag_experiment', \    
 #                     'Pillo_Penalty_experiment', \
-#                     'New_Augmented_Lag_experiment',\  #问题
-#                     'Fletcher_Penalty_experiment', \  #问题
+#                     'New_Augmented_Lag_experiment',\  #检查
+#                     'Fletcher_Penalty_experiment', \  
 #                     'SQP_experiment']:
-for experiment in ['SQP_experiment']:
-
-    for activation_input in ['sin', \
-                            'tanh', \
-                            'cos']:
-    # for activation_input in ['tanh']:
+# for experiment in ['PINN_experiment',"l1_Penalty_experiment",'l2_Penalty_experiment','linfinity_Penalty_experiment','Cubic_Penalty_experiment']:
+for experiment in ['Augmented_Lag_experiment']:
+    # for activation_input in ['sin', \
+    #                         'tanh', \
+    #                         'cos']:
+    for activation_input in ['identity']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -135,8 +134,13 @@ for experiment in ['SQP_experiment']:
             activation = nn.tanh
         elif activation_input == "cos":
             activation = jnp.cos
-            
+        elif activation_input == "identity":
+            def identity(x):
+                return x
+            activation = identity
+
         activation_name = activation.__name__
+        
 
         absolute_error_list = []
         l2_relative_error_list = []
@@ -177,9 +181,6 @@ for experiment in ['SQP_experiment']:
                 elif experiment == "linfinity_Penalty_experiment":
                     loss = linfinityPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
                                 N, M)
-                elif experiment == "Han_penalty_experiment":
-                    loss = HanPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
                 elif experiment == "Cubic_Penalty_experiment":
                     loss = CubicPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
                                 N, M)
@@ -196,7 +197,7 @@ for experiment in ['SQP_experiment']:
                     loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
                                 N, M)
                 
-                optim = Optim(model, loss, cons_violation)
+                optim = Optim(model, loss, cons_violation, panalty_param_upper_bound)
                 updated_params, loss_list = optim.adam_update(params, \
                                                         uncons_optim_num_echos, uncons_optim_learning_rate, \
                                                         penalty_param, penalty_param_update_factor, \

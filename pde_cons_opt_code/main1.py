@@ -38,8 +38,8 @@ from multiprocessing import Pool
 
 
 #######################################config for data#######################################
-beta_list = [10**-4, 30]
-# beta_list = [30]
+# beta_list = [10**-4, 30]
+beta_list = [10**-4]
 N=100
 M=5
 data_key_num = 1000
@@ -72,14 +72,14 @@ features = [2, 3, 1]
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 2
-init_penalty_param = 2
-panalty_param_upper_bound = 150
+penalty_param_update_factor = 1
+init_penalty_param = 1
+panalty_param_upper_bound = 100
 # converge_tol = 0.001
 uncons_optim_num_echos = 100
 uncons_optim_learning_rate = 0.001
 transition_steps = 50
-decay_rate = 0.9
+decay_rate = 0
 end_value = 0.00001
 transition_begin = 0
 staircase = True
@@ -120,13 +120,12 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'l1_Penalty_experiment', \
 #                     'l2_Penalty_experiment', \
 #                     'linfinity_Penalty_experiment', \
-#                     'Cubic_Penalty_experiment', \
 #                     'Augmented_Lag_experiment', \    
 #                     'Pillo_Penalty_experiment', \
 #                     'New_Augmented_Lag_experiment',\  #检查
 #                     'Fletcher_Penalty_experiment', \  
 #                     'SQP_experiment']:
-for experiment in ['PINN_experiment',"l1_Penalty_experiment",'l2_Penalty_experiment','linfinity_Penalty_experiment','Cubic_Penalty_experiment']:
+for experiment in ["linfinity_Penalty_experiment"]:
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
@@ -215,8 +214,9 @@ for experiment in ['PINN_experiment',"l1_Penalty_experiment",'l2_Penalty_experim
                 #                                         penalty_param, experiment, mul, mul_num_echos, alpha, \
                 #                                             transition_steps, decay_rate, end_value, \
                 #                                                 transition_begin, staircase)
+                
 
-                params, loss_list, uncons_optim_learning_rate = optim.adam_update(params, uncons_optim_num_echos, \
+                params, loss_list, uncons_optim_learning_rate, eq_cons_loss_list, l_k_loss_list = optim.adam_update(params, uncons_optim_num_echos, \
                                                                                 penalty_param, experiment, \
                                                                                 mul, mul_num_echos, alpha, \
                                                                                 lr_schedule)
@@ -225,6 +225,8 @@ for experiment in ['PINN_experiment',"l1_Penalty_experiment",'l2_Penalty_experim
                 total_loss_list.append(loss_list)
                 if penalty_param < panalty_param_upper_bound:
                     penalty_param = penalty_param_update_factor * penalty_param
+                
+                print(penalty_param, uncons_optim_learning_rate)
 
             absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                             params, N, eval_data, eval_ui[0])

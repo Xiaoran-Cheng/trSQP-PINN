@@ -48,6 +48,8 @@ class Optim:
         #             optax.scale_by_adam(), 
         #             optax.scale_by_schedule(lr_schedule))
         loss_list = []
+        eq_cons_loss_list = []
+        l_k_loss_list = []
         if experiment == "Pillo_Penalty_experiment":
             for step in tqdm(range(num_echos)):
                 for i in range(mul_num_echos):
@@ -55,7 +57,7 @@ class Optim:
                     updated_mul = self.update(opt=opt, grads=mul_grads, optim_object=mul)
 
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, updated_mul, penalty_param)
-                eq_cons = self.Loss.eq_cons(params)
+                # eq_cons = self.Loss.eq_cons(params)
                 # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
                 # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
                 #     penalty_param = penalty_param_update_factor * penalty_param
@@ -67,7 +69,7 @@ class Optim:
         elif experiment == "Augmented_Lag_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
-                eq_cons = self.Loss.eq_cons(params)
+                # eq_cons = self.Loss.eq_cons(params)
                 # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
                 mul = mul + penalty_param * eq_cons
                 # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
@@ -79,7 +81,7 @@ class Optim:
         elif experiment == "New_Augmented_Lag_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param, alpha)
-                eq_cons = self.Loss.eq_cons(params)
+                # eq_cons = self.Loss.eq_cons(params)
                 # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
 
                 Ax_pinv = -pd.DataFrame.from_dict(unfreeze(jacfwd(self.Loss.eq_cons, 0)(params)["params"])).\
@@ -98,7 +100,7 @@ class Optim:
         elif experiment == "Fletcher_Penalty_experiment":
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
-                eq_cons = self.Loss.eq_cons(params)
+                # eq_cons = self.Loss.eq_cons(params)
                 # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
                 # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
                 #     penalty_param = penalty_param_update_factor * penalty_param
@@ -110,13 +112,13 @@ class Optim:
             for step in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
                 params = self.update(opt=opt, grads = grads, optim_object=params)
-                eq_cons = self.Loss.eq_cons(params)
-                # eq_cons_violation = jnp.square(jnp.linalg.norm(eq_cons,ord=2))
-                # if eq_cons_violation > self.cons_violation and penalty_param < self.panalty_param_upper_bound:
-                #     penalty_param = penalty_param_update_factor * penalty_param
+                eq_cons_loss = self.Loss.eq_cons(params, penalty_param)
+                l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
-            # grad_loss = self.check_converge(jacfwd(self.Loss.loss, 0)(params, penalty_param))
-        return params, jnp.array(loss_list), lr_schedule(num_echos)
+                eq_cons_loss_list.append(eq_cons_loss)
+                l_k_loss_list.append(l_k_loss)
+
+        return params, jnp.array(loss_list), lr_schedule(num_echos), eq_cons_loss_list, l_k_loss_list
 
 
     # def LBFGS_update(self, params, maxiter, linesearch, penalty_param):

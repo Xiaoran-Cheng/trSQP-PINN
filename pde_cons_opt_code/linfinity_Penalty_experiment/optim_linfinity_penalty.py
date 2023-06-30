@@ -24,7 +24,7 @@ class linfinityPenalty:
 
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
-        return jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
     
 
     def IC_cons(self, params):
@@ -39,13 +39,11 @@ class linfinityPenalty:
             jnp.diag(grad_x[:,:,1]))
     
 
-    def eq_cons(self, params):
-        return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
-    
+    def eq_cons(self, params, penalty_param):
+        return 1 / (2*self.M) * penalty_param * jnp.linalg.norm(jnp.concatenate([self.IC_cons(params), self.pde_cons(params)]), ord=jnp.inf)
+
 
     def loss(self, params, penalty_param):
-        return  1 / self.N * self.l_k(params=params) + \
-                2 / self.M * penalty_param * \
-                jnp.linalg.norm(self.eq_cons(params), ord=jnp.inf)
+        return  self.l_k(params=params) + self.eq_cons(params, penalty_param)
 
 

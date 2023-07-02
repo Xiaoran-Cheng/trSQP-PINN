@@ -69,11 +69,6 @@ class SQP_Optim:
         self.M = M
         self.layer_names = params["params"].keys()
 
-
-    # def get_shapes_size(self, params):
-    #     shapes = pd.DataFrame.from_dict(unfreeze(params["params"])).applymap(lambda x: x.shape).values.flatten()
-    #     sizes = [np.prod(shape) for shape in shapes]
-    #     return shapes, sizes
     
 
     def flat_single_dict(self, dicts):
@@ -87,14 +82,6 @@ class SQP_Optim:
                     apply(lambda x: x.explode()).set_index([self.group_labels]).\
                         sort_index().applymap(lambda x: x.flatten()).values.flatten())
     
-
-    # def get_direction(self, flatted_gra_obj, flatted_gra_eq_cons, eq_cons):
-    #     Q = self.hessiam_param * jnp.identity(flatted_gra_obj.shape[0])
-    #     c = flatted_gra_obj
-    #     A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
-    #     b = -eq_cons
-    #     flatted_delta_params = self.qp.run(params_obj=(Q, c), params_eq=(A, b)).params.primal
-    #     return flatted_delta_params
     
 
     def get_recovered_dict(self, flatted_target, shapes, sizes):
@@ -107,16 +94,6 @@ class SQP_Optim:
             flatted_target_df.sort_index(ascending=False, inplace=True)
             recovered_target = FrozenDict({"params": flatted_target_df.to_dict()})
             return recovered_target
-    
-
-    # def get_step_size(self, maxiter, condition, decrease_factor, params, delta_params, current_obj, gra_obj, init_stepsize):
-    #         ls = BacktrackingLineSearch(fun=self.optim_components.obj, maxiter=maxiter, condition=condition,
-    #                                     decrease_factor=decrease_factor)
-    #         # ls = HagerZhangLineSearch(fun=self.optim_components.obj)
-    #         stepsize, _ = ls.run(init_stepsize=init_stepsize, params=params,
-    #                                 descent_direction=delta_params,
-    #                                 value=current_obj, grad=gra_obj)
-    #         return stepsize
 
 
     def SQP_optim(self, params, num_iter, maxiter, condition, decrease_factor, init_stepsize, line_search_tol):
@@ -127,42 +104,20 @@ class SQP_Optim:
             gra_obj, gra_eq_cons = self.optim_components.get_grads(params=params)
             eq_cons = self.optim_components.eq_cons(params=params)
             current_obj = self.optim_components.obj(params=params)
-
             flatted_gra_obj = self.flat_single_dict(gra_obj)
             flatted_current_params = self.flat_single_dict(params)
             flatted_gra_eq_cons = self.flat_multi_dict(gra_eq_cons)
-            
-
-
-            # flatted_delta_params = self.get_direction(flatted_gra_obj, flatted_gra_eq_cons, eq_cons)
-
             Q = self.hessian_param * jnp.identity(flatted_gra_obj.shape[0])
             c = flatted_gra_obj
             A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
             b = -eq_cons
             flatted_delta_params = self.qp.run(params_obj=(Q, c), params_eq=(A, b)).params.primal
-
-
-
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
-
-            # stepsize = self.get_step_size(maxiter=maxiter, condition=condition, decrease_factor=decrease_factor, \
-            #             params=params, delta_params=delta_params, current_obj=current_obj, gra_obj=gra_obj, init_stepsize=init_stepsize)
-            
-            # ls = BacktrackingLineSearch(fun=self.optim_components.obj, maxiter=maxiter, condition=condition,
-            #                             decrease_factor=decrease_factor)
-            # # ls = HagerZhangLineSearch(fun=self.optim_components.obj)
-            # stepsize, _ = ls.run(init_stepsize=init_stepsize, params=params,
-            #                         descent_direction=delta_params,
-            #                         value=current_obj, grad=gra_obj)
             ls = BacktrackingLineSearch(fun=self.optim_components.obj, maxiter=maxiter, condition=condition,
                                         decrease_factor=decrease_factor, tol=line_search_tol)
             stepsize, _ = ls.run(init_stepsize=init_stepsize, params=params,
                                     descent_direction=delta_params,
                                             value=current_obj, grad=gra_obj)
-
-
-
             flatted_updated_params = stepsize * flatted_delta_params + flatted_current_params
             params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
             obj_list.append(self.optim_components.obj(params))
@@ -171,7 +126,7 @@ class SQP_Optim:
 
     def evaluation(self, params, N, data, ui):
         u_theta = self.model.u_theta(params = params, data=data)
-        absolute_error = 1/N * jnp.linalg.norm(u_theta-ui)
-        l2_relative_error = 1/N * jnp.linalg.norm((u_theta-ui)/ui)
+        absolute_error = 1/N * jnp.linalg.norm(u_theta-ui, ord = 2)
+        l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
  

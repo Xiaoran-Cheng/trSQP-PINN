@@ -26,7 +26,7 @@ class PilloPenalty:
 
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
-        return jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
     
 
     def IC_cons(self, params):
@@ -45,19 +45,23 @@ class PilloPenalty:
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
+    def eq_cons_loss(self, params, penalty_param):
+        return 0.5 * penalty_param * \
+                jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+    
+
     def L(self, params, mul):
         return self.l_k(params) + self.eq_cons(params) @ mul
     
 
-    def get_mul_obj(self, params, mul, penalty_param):
+    def get_mul_obj(self, params, mul, penalty_param_for_mul):
         grad_L_norm = pd.DataFrame.from_dict(unfreeze(jacfwd(self.L, 0)(params, mul)["params"])).\
             applymap(lambda x: jnp.linalg.norm(x,ord=2)).values.sum()
         sx = jnp.square(jnp.linalg.norm(self.eq_cons(params),ord=2))
         mul_norm = jnp.square(jnp.linalg.norm(mul, ord=2))
-        return grad_L_norm + penalty_param * sx * mul_norm
+        return grad_L_norm + penalty_param_for_mul * sx * mul_norm
              
         
     def loss(self, params, updated_mul, penalty_param):
-        return self.L(params, updated_mul) + 0.5 * penalty_param * \
-                    jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+        return self.L(params, updated_mul) + self.eq_cons_loss(params, penalty_param)
     

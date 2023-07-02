@@ -15,16 +15,16 @@ class Data:
         xi = random.uniform(key, shape=(self.dim-1,self.N), minval=x_min, maxval=x_max)
         ti = random.uniform(key, shape=(self.dim-1,self.N), minval=t_min, maxval=t_max)
         ui = Transport_eq(beta=beta).solution(xi, ti)
-        # return xi, ti, ui
-        return jnp.sort(xi), jnp.sort(ti), jnp.sort(ui)
+        return xi, ti, ui
+        # return jnp.sort(xi), jnp.sort(ti), jnp.sort(ui)
     
 
     def sample_data(self, x_min, x_max, t_min, t_max):
         key = random.PRNGKey(self.key_num)
         xj = random.uniform(key, shape=(self.dim-1,self.M), minval=x_min, maxval=x_max)
         tj = random.uniform(key, shape=(self.dim-1,self.M), minval=t_min, maxval=t_max)
-        # return xj, tj
-        return jnp.sort(xj), jnp.sort(tj)
+        return xj, tj
+        # return jnp.sort(xj), jnp.sort(tj)
     
 
     # def generate_IC_data(self, min, max, beta):

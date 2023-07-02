@@ -22,9 +22,10 @@ class AugLag:
         self.M = M
 
 
+    
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
-        return jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
     
 
     def IC_cons(self, params):
@@ -37,17 +38,22 @@ class AugLag:
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
-    
 
+    
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
-    def loss(self, params, mul, penalty_param):
-        return self.l_k(params) + self.eq_cons(params) @ mul + \
-                0.5 * penalty_param * \
+    def eq_cons_loss(self, params, penalty_param):
+        return 0.5 * penalty_param * \
                 jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
 
 
+    def L(self, params, mul):
+        return self.l_k(params) + self.eq_cons(params) @ mul
+
+
+    def loss(self, params, mul, penalty_param):
+        return self.l_k(params) + self.L(params, mul) + self.eq_cons_loss(params, penalty_param)
 
 

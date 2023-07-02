@@ -7,7 +7,8 @@ from Transport_eq import Transport_eq
 
 from jax import numpy as jnp
 from jax import jacfwd
-from tqdm.notebook import tqdm
+# from tqdm.notebook import tqdm
+from tqdm import tqdm
 import numpy as np
 import pandas as pd
 from flax.core.frozen_dict import FrozenDict, unfreeze
@@ -16,18 +17,19 @@ from jaxopt import BacktrackingLineSearch, HagerZhangLineSearch
 
 
 class OptimComponents:
-    def __init__(self, model, data, sample_data, IC_sample_data, ui, beta):
+    def __init__(self, model, data, sample_data, IC_sample_data, ui, beta, N):
         self.model = model
         self.beta = beta
         self.data = data
         self.sample_data = sample_data
         self.IC_sample_data = IC_sample_data
         self.ui = ui
+        self.N = N
 
 
     def obj(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
-        return jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
     
 
     def IC_cons(self, params):
@@ -46,9 +48,13 @@ class OptimComponents:
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
-    def L(self, params, mul):
-        return self.l_k(params) + self.eq_cons(params) @ mul
+    def eq_cons_loss(self, params):
+        return 0.5 * jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
     
+
+    # def L(self, params, mul):
+    #     return self.l_k(params) + self.eq_cons(params) @ mul
+
 
     def get_grads(self, params):
         gra_obj = jacfwd(self.obj, 0)(params)
@@ -70,7 +76,6 @@ class SQP_Optim:
         self.layer_names = params["params"].keys()
 
     
-
     def flat_single_dict(self, dicts):
         return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
                         applymap(lambda x: x.flatten()).values.flatten())
@@ -83,7 +88,6 @@ class SQP_Optim:
                         sort_index().applymap(lambda x: x.flatten()).values.flatten())
     
     
-
     def get_recovered_dict(self, flatted_target, shapes, sizes):
             subarrays = np.split(flatted_target, np.cumsum(sizes)[:-1])
             reshaped_arrays = [subarray.reshape(shape) for subarray, shape in zip(subarrays, shapes)]
@@ -98,6 +102,8 @@ class SQP_Optim:
 
     def SQP_optim(self, params, num_iter, maxiter, condition, decrease_factor, init_stepsize, line_search_tol):
         obj_list = []
+        eq_con_list = []
+        kkt_residual_list = []
         shapes = pd.DataFrame.from_dict(unfreeze(params["params"])).applymap(lambda x: x.shape).values.flatten()
         sizes = [np.prod(shape) for shape in shapes]
         for _ in tqdm(range(num_iter)):
@@ -111,7 +117,10 @@ class SQP_Optim:
             c = flatted_gra_obj
             A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
             b = -eq_cons
-            flatted_delta_params = self.qp.run(params_obj=(Q, c), params_eq=(A, b)).params.primal
+            # flatted_delta_params = self.qp.run(params_obj=(Q, c), params_eq=(A, b)).params.primal
+            sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None).params
+            flatted_delta_params = sol.primal
+            kkt_residual = self.qp.l2_optimality_error(params=sol, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
             ls = BacktrackingLineSearch(fun=self.optim_components.obj, maxiter=maxiter, condition=condition,
                                         decrease_factor=decrease_factor, tol=line_search_tol)
@@ -121,7 +130,9 @@ class SQP_Optim:
             flatted_updated_params = stepsize * flatted_delta_params + flatted_current_params
             params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
             obj_list.append(self.optim_components.obj(params))
-        return params, obj_list
+            eq_con_list.append(self.optim_components.eq_cons_loss(params))
+            kkt_residual_list.append(kkt_residual)
+        return params, obj_list, eq_con_list, kkt_residual_list
         
 
     def evaluation(self, params, N, data, ui):

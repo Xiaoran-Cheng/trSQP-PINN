@@ -27,7 +27,7 @@ from jax import random
 import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
-from jaxopt import EqualityConstrainedQP
+from jaxopt import EqualityConstrainedQP, CvxpyQP, OSQP
 import jax.numpy as jnp
 import optax
 
@@ -65,8 +65,8 @@ eval_dataloader = DataLoader(Data=eval_Datas)
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [10, 10, 10, 10, 1]
-# features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-features = [2, 3, 1]
+features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+# features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 
@@ -102,8 +102,9 @@ visual = Visualization(current_dir)
 
 
 ####################################### config for SQP #######################################
-qp = EqualityConstrainedQP(tol=1e-5, refine_regularization=3., refine_maxiter=50)
-SQP_num_iter = 100
+# qp = EqualityConstrainedQP(tol=1e-5, refine_regularization=3., refine_maxiter=50)
+qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS"
+SQP_num_iter = 2000
 hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
@@ -125,14 +126,14 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'Pillo_Penalty_experiment', \ # check     2
 #                     'New_Augmented_Lag_experiment',\ # 不要了
 #                     'Fletcher_Penalty_experiment', \  # not good
-#                     'SQP_experiment']:            # check     4
+#                     'SQP_experiment']:
 
 for experiment in ['SQP_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
-    for activation_input in ['identity']:
+    for activation_input in ['sin']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -169,15 +170,14 @@ for experiment in ['SQP_experiment']:
             t_sample_max, beta, M)
             
             if experiment == "SQP_experiment":
-                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta)
+                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta, N)
                 sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
-                params, loss_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
+                params, total_l_k_loss_list, total_eq_cons_loss_list, kkt_residual_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
                                             line_search_max_iter, line_search_condition, \
-                                                line_search_decrease_factor, init_stepsize, line_search_tol)
-
+                                            line_search_decrease_factor, init_stepsize, line_search_tol)
                 absolute_error, l2_relative_error, eval_u_theta = \
                     sqp_optim.evaluation(params, N, eval_data, eval_ui[0])
-                    
+            
             else:
                 if experiment == "PINN_experiment":
                     loss = PINN(model, data, sample_data, IC_sample_data, ui[0], beta, \
@@ -203,7 +203,7 @@ for experiment in ['SQP_experiment']:
                 elif experiment == "Fletcher_Penalty_experiment":
                     loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
                                 N, M)
-                    
+                
                 optim = Optim(model, loss, panalty_param_upper_bound)
                 penalty_param = init_penalty_param
                 uncons_optim_learning_rate = init_uncons_optim_learning_rate
@@ -239,13 +239,16 @@ for experiment in ['SQP_experiment']:
                 total_eq_cons_loss_list = jnp.concatenate(jnp.array(total_eq_cons_loss_list))
                 total_l_k_loss_list = jnp.concatenate(jnp.array(total_l_k_loss_list))
 
-
-            visual.line_graph(total_loss_list, "/{activation_name}/Total_Loss".\
-                format(activation_name=activation_name), experiment=experiment, beta=beta)
+            if experiment != "SQP_experiment":
+                visual.line_graph(total_loss_list, "/{activation_name}/Total_Loss".\
+                    format(activation_name=activation_name), experiment=experiment, beta=beta)
             visual.line_graph(total_eq_cons_loss_list, "/{activation_name}/Total_eq_cons_Loss".\
                 format(activation_name=activation_name), experiment=experiment, beta=beta)
             visual.line_graph(total_l_k_loss_list, "/{activation_name}/Total_l_k_Loss".\
                 format(activation_name=activation_name), experiment=experiment, beta=beta)
+            if experiment == "SQP_experiment":
+                visual.line_graph(kkt_residual_list, "/{activation_name}/KKT_residual".\
+                    format(activation_name=activation_name), experiment=experiment, beta=beta)
 
 
             visual.line_graph(eval_ui[0], "/{activation_name}/True_sol".\
@@ -259,8 +262,10 @@ for experiment in ['SQP_experiment']:
 
             absolute_error_list.append(absolute_error)
             l2_relative_error_list.append(l2_relative_error)
-
-            print("last loss: "+str(total_loss_list[-1]))
+            if experiment != "SQP_experiment":
+                print("last loss: "+str(total_loss_list[-1]))
+            if experiment == "SQP_experiment":
+                print("last KKT residual: "+str(kkt_residual_list[-1]))
             print("absolute_error: " + str(absolute_error))
             print("l2_relative_error: " + str(l2_relative_error))
 
@@ -275,3 +280,4 @@ for experiment in ['SQP_experiment']:
 
 end_time = time.time()
 print(f"Execution Time: {end_time - start_time} seconds")
+

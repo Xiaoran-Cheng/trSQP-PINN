@@ -45,9 +45,8 @@ class PilloPenalty:
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
-    def eq_cons_loss(self, params, penalty_param):
-        return 0.5 * penalty_param * \
-                jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+    def eq_cons_loss(self, params):
+        return jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
     
 
     def L(self, params, mul):
@@ -63,5 +62,5 @@ class PilloPenalty:
              
         
     def loss(self, params, updated_mul, penalty_param):
-        return self.L(params, updated_mul) + self.eq_cons_loss(params, penalty_param)
+        return self.L(params, updated_mul) +  0.5 * penalty_param * self.eq_cons_loss(params)
     

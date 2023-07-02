@@ -16,6 +16,7 @@ from Pillo_Penalty_experiment.optim_pillo_penalty import PilloPenalty
 from SQP_experiment.optim_sqp import OptimComponents, SQP_Optim
 from New_Augmented_Lag_experiment.optim_new_aug_lag import NewAugLag
 from Fletcher_Penalty_experiment.optim_fletcher_penalty import FletcherPenalty
+from Bert_Aug_Lag_experiment.optim_bert_aug_lag import BertAugLag
 
 from data import Data
 from NN import NN
@@ -65,8 +66,8 @@ eval_dataloader = DataLoader(Data=eval_Datas)
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [10, 10, 10, 10, 1]
-features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-# features = [2, 3, 1]
+# features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 
@@ -75,17 +76,19 @@ penalty_param_update_factor = 2
 init_penalty_param = 1
 panalty_param_upper_bound = 150
 # converge_tol = 0.001
-uncons_optim_num_echos = 500
+uncons_optim_num_echos = 1000
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
-decay_rate = 0.9
+decay_rate = 0.7
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 5
+max_iter_train = 10
 
 penalty_param_for_mul = 5
 # cons_violation = 0.001 # threshold for updating penalty param
+init_penalty_param_v = init_penalty_param
+init_penalty_param_mu = init_penalty_param
 ####################################### config for penalty param #######################################
 
 
@@ -126,14 +129,15 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'Pillo_Penalty_experiment', \ # check     2
 #                     'New_Augmented_Lag_experiment',\ # 不要了
 #                     'Fletcher_Penalty_experiment', \  # not good
+#                     'Bert_Aug_Lag_experiment',\
 #                     'SQP_experiment']:
 
-for experiment in ['SQP_experiment']:
+for experiment in ['Bert_Aug_Lag_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
-    for activation_input in ['sin']:
+    for activation_input in ['identity']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -164,6 +168,7 @@ for experiment in ['SQP_experiment']:
                 x_data_min, x_data_max, t_data_min, t_data_max, x_sample_min, \
                     x_sample_max, t_sample_min, t_sample_max, beta, M)
             params = model.init_params(key=key, data=data)
+            params_mul = [params, init_mul]
 
             eval_data, _, _, eval_ui = eval_dataloader.get_data(x_data_min, x_data_max, \
             t_data_min, t_data_max, x_sample_min, x_sample_max, t_sample_min, \
@@ -203,9 +208,15 @@ for experiment in ['SQP_experiment']:
                 elif experiment == "Fletcher_Penalty_experiment":
                     loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
                                 N, M)
+                elif experiment == "Bert_Aug_Lag_experiment":
+                    loss = BertAugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                                N, M)
+                    
                 
                 optim = Optim(model, loss, panalty_param_upper_bound)
                 penalty_param = init_penalty_param
+                penalty_param_v = init_penalty_param_v
+                penalty_param_mu = init_penalty_param_mu
                 uncons_optim_learning_rate = init_uncons_optim_learning_rate
                 mul = init_mul
                 total_loss_list = []
@@ -213,24 +224,37 @@ for experiment in ['SQP_experiment']:
                 total_l_k_loss_list = []
                 iter_retrain = 1
                 while iter_retrain <= max_iter_train:
-                    params, loss_list, uncons_optim_learning_rate, \
+                    params, params_mul, loss_list, uncons_optim_learning_rate, \
                     eq_cons_loss_list, l_k_loss_list, eq_cons = \
                         optim.adam_update(params, \
                                             uncons_optim_num_echos, \
                                             penalty_param, experiment, \
                                             mul, mul_num_echos, alpha, \
                                             lr_schedule, group_labels, \
-                                            penalty_param_for_mul)
+                                            penalty_param_for_mul, \
+                                            params_mul, \
+                                            penalty_param_mu, \
+                                            penalty_param_v)
                     iter_retrain+=1
                     uncons_optim_learning_rate = lr_schedule(uncons_optim_num_echos * iter_retrain)
                     if experiment == "Augmented_Lag_experiment":
                         mul = mul + penalty_param * 2 * eq_cons
                     if penalty_param < panalty_param_upper_bound:
                         penalty_param = penalty_param_update_factor * penalty_param
+                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_mu < panalty_param_upper_bound:
+                        penalty_param_mu = penalty_param_update_factor * penalty_param_mu
+                        # penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_v > 1/panalty_param_upper_bound:
+                        # penalty_param_mu = penalty_param_update_factor * penalty_param_mu
+                        penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+
                     total_loss_list.append(loss_list)
                     total_eq_cons_loss_list.append(eq_cons_loss_list)
                     total_l_k_loss_list.append(l_k_loss_list)
-                    print("penalty param: ", str(penalty_param), "leanring rate: ", str(uncons_optim_learning_rate))
+                    if experiment != "Bert_Aug_Lag_experiment":
+                        print("penalty param: ", str(penalty_param), "leanring rate: ", str(uncons_optim_learning_rate))
+                    else:
+                        print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 
 
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
@@ -280,4 +304,5 @@ for experiment in ['SQP_experiment']:
 
 end_time = time.time()
 print(f"Execution Time: {end_time - start_time} seconds")
+
 

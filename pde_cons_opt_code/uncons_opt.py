@@ -37,7 +37,10 @@ class Optim:
                     penalty_param, experiment, \
                     mul, mul_num_echos, alpha, \
                     lr_schedule, group_labels, \
-                    penalty_param_for_mul):
+                    penalty_param_for_mul, \
+                    params_mul, \
+                    penalty_param_mu, \
+                    penalty_param_v):
 
         
         opt = optax.adam(lr_schedule)
@@ -53,7 +56,7 @@ class Optim:
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, updated_mul, penalty_param)
                 params = self.update(opt=opt, grads= grads, optim_object=params)
 
-                eq_cons_loss = self.Loss.eq_cons_loss(params, penalty_param) / penalty_param
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
                 eq_cons_loss_list.append(eq_cons_loss)
@@ -65,7 +68,7 @@ class Optim:
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
                 params = self.update(opt=opt, grads= grads, optim_object=params)
 
-                eq_cons_loss = self.Loss.eq_cons_loss(params, penalty_param) / penalty_param
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
                 eq_cons_loss_list.append(eq_cons_loss)
@@ -90,23 +93,34 @@ class Optim:
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param, group_labels)
                 params = self.update(opt=opt, grads= grads, optim_object=params)
 
-                eq_cons_loss = self.Loss.eq_cons_loss(params, penalty_param) / penalty_param
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
+                l_k_loss = self.Loss.l_k(params)
+                loss_list.append(l)
+                eq_cons_loss_list.append(eq_cons_loss)
+                l_k_loss_list.append(l_k_loss)
+
+        elif experiment == "Bert_Aug_Lag_experiment":
+            for _ in tqdm(range(num_echos)):
+                l, grads = value_and_grad(self.Loss.loss, 0)(params_mul, penalty_param_mu, penalty_param_v)
+                params_mul = self.update(opt=opt, grads=grads, optim_object=params_mul)
+                params, mul = params_mul
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
                 eq_cons_loss_list.append(eq_cons_loss)
                 l_k_loss_list.append(l_k_loss)
 
         else:
-            for step in tqdm(range(num_echos)):
+            for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
                 params = self.update(opt=opt, grads = grads, optim_object=params)
-                eq_cons_loss = self.Loss.eq_cons(params, penalty_param) / penalty_param
+                eq_cons_loss = self.Loss.eq_cons(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
                 eq_cons_loss_list.append(eq_cons_loss)
                 l_k_loss_list.append(l_k_loss)
 
-        return params, jnp.array(loss_list), lr_schedule(num_echos), eq_cons_loss_list, l_k_loss_list, self.Loss.eq_cons(params)
+        return params, params_mul, jnp.array(loss_list), lr_schedule(num_echos), eq_cons_loss_list, l_k_loss_list, self.Loss.eq_cons(params)
 
 
     # def LBFGS_update(self, params, maxiter, linesearch, penalty_param):

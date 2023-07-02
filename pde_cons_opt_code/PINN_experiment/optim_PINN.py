@@ -39,12 +39,12 @@ class PINN:
             jnp.diag(grad_x[:,:,1]))
     
 
-    def eq_cons(self, params, penalty_param):
-        return 1 / (2*self.M) * penalty_param * jnp.square(jnp.linalg.norm(jnp.concatenate([self.IC_cons(params), self.pde_cons(params)]), ord=2))
+    def eq_cons_loss(self, params):
+        return jnp.square(jnp.linalg.norm(jnp.concatenate([self.IC_cons(params), self.pde_cons(params)]), ord=2))
 
 
     def loss(self, params, penalty_param):
-        return  self.l_k(params=params) + self.eq_cons(params, penalty_param)
+        return  self.l_k(params=params) + 1 / (2*self.M) * penalty_param *  self.eq_cons_loss(params)
 
 
 

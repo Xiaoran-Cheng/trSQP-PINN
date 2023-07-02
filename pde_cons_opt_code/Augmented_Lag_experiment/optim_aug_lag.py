@@ -44,9 +44,8 @@ class AugLag:
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
-    def eq_cons_loss(self, params, penalty_param):
-        return 0.5 * penalty_param * \
-                jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+    def eq_cons_loss(self, params):
+        return  jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
 
 
     def L(self, params, mul):
@@ -54,6 +53,6 @@ class AugLag:
 
 
     def loss(self, params, mul, penalty_param):
-        return self.l_k(params) + self.L(params, mul) + self.eq_cons_loss(params, penalty_param)
+        return self.L(params, mul) + 0.5 * penalty_param * self.eq_cons_loss(params)
 
 

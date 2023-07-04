@@ -8,6 +8,7 @@ from Transport_eq import Transport_eq
 from jax import numpy as jnp
 from jax import jacfwd
 import pandas as pd
+import numpy as np
 from flax.core.frozen_dict import unfreeze
 
 
@@ -26,7 +27,7 @@ class NewAugLag:
 
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
-        return jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
     
 
     def IC_cons(self, params):
@@ -39,25 +40,39 @@ class NewAugLag:
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
-    
 
+    
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
+    
+
+    def eq_cons_loss(self, params):
+        return  jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+
+
+    def L(self, params_mul):
+        params, mul = params_mul
+        return self.l_k(params) + self.eq_cons(params) @ mul
+    
+    
+    def flat_single_dict(self, dicts):
+        return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
+                        applymap(lambda x: x.primal.flatten()).values.flatten())
+    
+
+    def flat_multi_dict(self, dicts, group_labels):
+        return np.concatenate(pd.DataFrame.from_dict(\
+                unfreeze(dicts['params'])).\
+                    apply(lambda x: x.explode()).set_index([group_labels]).\
+                        sort_index().applymap(lambda x: x.primal.flatten()).values.flatten())
         
 
-    def loss(self, params, mul, penalty_param, alpha):
-        aug_part = self.l_k(params) + self.eq_cons(params) @ mul + \
-                + penalty_param * jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
-        grads_fx = pd.DataFrame.from_dict(unfreeze(jacfwd(self.l_k, 0)(params)["params"]))
-        grads_eq_cons = pd.DataFrame.from_dict(unfreeze(\
-            jacfwd(self.eq_cons, 0)(params)["params"]))
-        Mx = alpha * grads_eq_cons
-        Axgx = lambda x, y: (x * y).sum(axis=(1,2)) if y.ndim == 3 else (x * y).sum(axis=1)
-        pen_part = jnp.square(jnp.linalg.norm(jnp.array(list(map(Axgx, \
-                    (grads_fx + grads_eq_cons.applymap(lambda x: (x.T @ mul).T)).values.flatten(), \
-                        Mx.values.flatten()))).sum(axis=0), ord=2))
-        return aug_part + pen_part
-
-
+    def loss(self, params_mul, penalty_param, alpha, group_labels):
+        params, mul = params_mul
+        grads_fx = self.flat_single_dict(jacfwd(self.l_k, 0)(params))
+        Mx = alpha
+        gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params), group_labels), 2*self.M))
+        second_penalty_part = jnp.square(jnp.linalg.norm(Mx * (grads_fx + (gra_eq_cons.T @ mul)), ord=2))
+        return self.L(params_mul) + penalty_param * self.eq_cons_loss(params) + second_penalty_part
 
 

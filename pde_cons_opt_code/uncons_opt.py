@@ -74,19 +74,16 @@ class Optim:
                 eq_cons_loss_list.append(eq_cons_loss)
                 l_k_loss_list.append(l_k_loss)
 
-
         elif experiment == "New_Augmented_Lag_experiment":
             for _ in tqdm(range(num_echos)):
-                l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param, alpha)
-                Ax_pinv = -pd.DataFrame.from_dict(unfreeze(jacfwd(self.Loss.eq_cons, 0)(params)["params"])).\
-                            applymap(lambda x: jnp.transpose(jnp.linalg.pinv(x), \
-                            axes=(0,2,1)) if x.ndim == 3 else jnp.transpose(jnp.linalg.pinv(x))).values.flatten()
-                
-                gx = pd.DataFrame.from_dict(unfreeze(jacfwd(self.Loss.l_k, 0)(params)["params"])).values.flatten()
-                Ax_pinv_gx = lambda x, y: (x * y).sum(axis=(1,2)) if y.ndim == 3 else (x * y).sum(axis=1)
-                mul = jnp.array(list(map(Ax_pinv_gx, gx, Ax_pinv))).sum(axis=0)
-                params = self.update(opt=opt, grads= grads, optim_object=params)
+                l, grads = value_and_grad(self.Loss.loss, 0)(params_mul, penalty_param, alpha, group_labels)
+                params_mul = self.update(opt=opt, grads=grads, optim_object=params_mul)
+                params, mul = params_mul
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
+                l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
+                eq_cons_loss_list.append(eq_cons_loss)
+                l_k_loss_list.append(l_k_loss)
 
         elif experiment == "Fletcher_Penalty_experiment":
             for _ in tqdm(range(num_echos)):

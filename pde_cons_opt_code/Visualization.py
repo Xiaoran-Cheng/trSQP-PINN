@@ -1,6 +1,8 @@
 from jax import numpy as jnp
 import matplotlib.pyplot as plt
 import os
+from mpl_toolkits.axes_grid1 import make_axes_locatable
+import numpy as np
 
 class Visualization:
     def __init__(self, current_dir) -> None:
@@ -14,6 +16,7 @@ class Visualization:
     def heatmap(self, data, sol, types, experiment, beta):
         x = data[:,0]
         t = data[:,1]
+
         plt.imshow(sol[:, jnp.newaxis].T, interpolation='nearest', cmap='rainbow',
                         extent=[t.min(), t.max(), x.min(), x.max()],
                         origin='lower', aspect='auto')

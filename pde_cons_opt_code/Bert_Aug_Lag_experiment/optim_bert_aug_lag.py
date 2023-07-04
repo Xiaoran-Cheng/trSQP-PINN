@@ -12,6 +12,7 @@ import numpy as np
 from flax.core.frozen_dict import unfreeze
 
 
+
 class BertAugLag:
     def __init__(self, model, data, sample_data, IC_sample_data, ui, beta, N, M):
         self.model = model

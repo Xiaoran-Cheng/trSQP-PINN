@@ -39,7 +39,7 @@ from multiprocessing import Pool
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [10**-4]
+beta_list = [30]
 N=100
 M=5
 data_key_num = 1000
@@ -74,17 +74,17 @@ features = [2, 3, 1]
 ####################################### config for penalty param #######################################
 penalty_param_update_factor = 2
 init_penalty_param = 1
-panalty_param_upper_bound = 150
+panalty_param_upper_bound = 10**6
 # converge_tol = 0.001
-uncons_optim_num_echos = 1000
+uncons_optim_num_echos = 10
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
-decay_rate = 0.7
+decay_rate = 0.9
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 3
-
+max_iter_train = 1
+merit_func_penalty_param = 100
 penalty_param_for_mul = 5
 # cons_violation = 0.001 # threshold for updating penalty param
 init_penalty_param_v = init_penalty_param
@@ -128,20 +128,17 @@ qr_ind_tol = 1e-5
 #                     'linfinity_Penalty_experiment', \
 #                     'Augmented_Lag_experiment', \    
 #                     'Pillo_Penalty_experiment', \ # check     2
-#                     'New_Augmented_Lag_experiment',\ # 不要了
+#                     'New_Augmented_Lag_experiment',\
 #                     'Fletcher_Penalty_experiment', \  # not good
 #                     'Bert_Aug_Lag_experiment',\
 #                     'SQP_experiment']:
 
-for experiment in ['PINN_experiment', \
-                    'l1_Penalty_experiment', \
-                    'l2_Penalty_experiment', \
-                    'linfinity_Penalty_experiment']:
+for experiment in ['PINN_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
-    for activation_input in ['sin']:
+    for activation_input in ['identity']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -179,7 +176,7 @@ for experiment in ['PINN_experiment', \
             t_sample_max, beta, M)
             
             if experiment == "SQP_experiment":
-                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta, N)
+                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta, N, M)
                 sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
                 params, total_l_k_loss_list, total_eq_cons_loss_list, kkt_residual_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
                                             line_search_max_iter, line_search_condition, \
@@ -247,9 +244,7 @@ for experiment in ['PINN_experiment', \
                         penalty_param = penalty_param_update_factor * penalty_param
                     if experiment == "Bert_Aug_Lag_experiment" and penalty_param_mu < panalty_param_upper_bound:
                         penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-                        # penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
                     if experiment == "Bert_Aug_Lag_experiment" and penalty_param_v > 1/panalty_param_upper_bound:
-                        # penalty_param_mu = penalty_param_update_factor * penalty_param_mu
                         penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
 
                     total_loss_list.append(loss_list)

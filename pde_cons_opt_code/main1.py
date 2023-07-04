@@ -13,10 +13,10 @@ from l2_Penalty_experiment.optim_l2_penalty import l2Penalty
 from linfinity_Penalty_experiment.optim_linfinity_penalty import linfinityPenalty
 from Augmented_Lag_experiment.optim_aug_lag import AugLag
 from Pillo_Penalty_experiment.optim_pillo_penalty import PilloPenalty
-from SQP_experiment.optim_sqp import OptimComponents, SQP_Optim
 from New_Augmented_Lag_experiment.optim_new_aug_lag import NewAugLag
 from Fletcher_Penalty_experiment.optim_fletcher_penalty import FletcherPenalty
 from Bert_Aug_Lag_experiment.optim_bert_aug_lag import BertAugLag
+from SQP_experiment.optim_sqp import OptimComponents, SQP_Optim
 
 from data import Data
 from NN import NN
@@ -39,7 +39,7 @@ from multiprocessing import Pool
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [30]
+beta_list = [10**-4]
 N=100
 M=5
 data_key_num = 1000
@@ -83,7 +83,7 @@ decay_rate = 0.7
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 10
+max_iter_train = 3
 
 penalty_param_for_mul = 5
 # cons_violation = 0.001 # threshold for updating penalty param
@@ -93,7 +93,7 @@ init_penalty_param_mu = init_penalty_param
 
 
 ####################################### config for lagrange multiplier #######################################
-init_mul = jnp.zeros(2*M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
+init_mul = jnp.ones(2*M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
 mul_num_echos = 10 # for Pillo_Penalty_experiment
 alpha = 150 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
@@ -107,7 +107,7 @@ visual = Visualization(current_dir)
 ####################################### config for SQP #######################################
 # qp = EqualityConstrainedQP(tol=1e-5, refine_regularization=3., refine_maxiter=50)
 qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS"
-SQP_num_iter = 2000
+SQP_num_iter = 5000
 hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
@@ -115,6 +115,7 @@ line_search_max_iter = 30
 line_search_condition = "strong-wolfe"  # armijo, goldstein, strong-wolfe or wolfe.
 line_search_decrease_factor = 0.8
 group_labels = list(range(1,2*M+1)) * 2
+qr_ind_tol = 1e-5
 ####################################### config for SQP #######################################
 
 
@@ -132,12 +133,15 @@ group_labels = list(range(1,2*M+1)) * 2
 #                     'Bert_Aug_Lag_experiment',\
 #                     'SQP_experiment']:
 
-for experiment in ['Bert_Aug_Lag_experiment']:
+for experiment in ['PINN_experiment', \
+                    'l1_Penalty_experiment', \
+                    'l2_Penalty_experiment', \
+                    'linfinity_Penalty_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
-    for activation_input in ['identity']:
+    for activation_input in ['sin']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -179,7 +183,7 @@ for experiment in ['Bert_Aug_Lag_experiment']:
                 sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
                 params, total_l_k_loss_list, total_eq_cons_loss_list, kkt_residual_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
                                             line_search_max_iter, line_search_condition, \
-                                            line_search_decrease_factor, init_stepsize, line_search_tol)
+                                            line_search_decrease_factor, init_stepsize, line_search_tol, qr_ind_tol)
                 absolute_error, l2_relative_error, eval_u_theta = \
                     sqp_optim.evaluation(params, N, eval_data, eval_ui[0])
             

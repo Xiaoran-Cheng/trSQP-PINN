@@ -51,11 +51,11 @@ class Optim:
             for step in tqdm(range(num_echos)):
                 for i in range(mul_num_echos):
                     mul_l, mul_grads = value_and_grad(self.Loss.get_mul_obj, 1)(params, mul, penalty_param_for_mul)
-                    updated_mul = self.update(opt=opt, grads=mul_grads, optim_object=mul)
+                    mul = self.update(opt=opt, grads=mul_grads, optim_object=mul)
+                    print(mul)
 
-                l, grads = value_and_grad(self.Loss.loss, 0)(params, updated_mul, penalty_param)
-                params = self.update(opt=opt, grads= grads, optim_object=params)
-
+                l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
+                params = self.update(opt=opt, grads=grads, optim_object=params)
                 eq_cons_loss = self.Loss.eq_cons_loss(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
@@ -114,7 +114,7 @@ class Optim:
             for _ in tqdm(range(num_echos)):
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
                 params = self.update(opt=opt, grads = grads, optim_object=params)
-                eq_cons_loss = self.Loss.eq_cons(params)
+                eq_cons_loss = self.Loss.eq_cons_loss(params)
                 l_k_loss = self.Loss.l_k(params)
                 loss_list.append(l)
                 eq_cons_loss_list.append(eq_cons_loss)

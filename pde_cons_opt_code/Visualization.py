@@ -13,11 +13,12 @@ class Visualization:
             os.makedirs(folder_path)
 
 
-    def heatmap(self, data, sol, types, experiment, beta):
+    def heatmap(self, data, sol, types, experiment, beta, nt, xgrid):
         x = data[:,0]
         t = data[:,1]
-
-        plt.imshow(sol[:, jnp.newaxis].T, interpolation='nearest', cmap='rainbow',
+        sol = sol.T.reshape(nt, xgrid)
+        
+        plt.imshow(sol, interpolation='nearest', cmap='rainbow',
                         extent=[t.min(), t.max(), x.min(), x.max()],
                         origin='lower', aspect='auto')
         plt.xlabel('t')

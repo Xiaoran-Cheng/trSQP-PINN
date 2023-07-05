@@ -52,7 +52,6 @@ class Optim:
                 for i in range(mul_num_echos):
                     mul_l, mul_grads = value_and_grad(self.Loss.get_mul_obj, 1)(params, mul, penalty_param_for_mul)
                     mul = self.update(opt=opt, grads=mul_grads, optim_object=mul)
-                    print(mul)
 
                 l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
                 params = self.update(opt=opt, grads=grads, optim_object=params)

@@ -40,11 +40,14 @@ from multiprocessing import Pool
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
 beta_list = [30]
+xgrid = 256
+nt = 100
 N=100
 M=5
-data_key_num = 1000
+data_key_num, sample_data_key_num = 100, 256
+eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
-Datas = Data(N=N, M=M, key_num=data_key_num, dim=dim)
+Datas = Data(N=N, M=M, dim=dim)
 dataloader = DataLoader(Data=Datas)
 
 x_data_min = 0
@@ -56,16 +59,16 @@ x_sample_max = 2*jnp.pi
 t_sample_min = 0
 t_sample_max = 1
 
-evaluation_data_key_num = 256
-eval_Datas = Data(N=N, M=M, key_num=evaluation_data_key_num, dim=dim)
-eval_dataloader = DataLoader(Data=eval_Datas)
+# evaluation_data_key_num = 256
+# eval_Datas = Data(N=N, M=M, dim=dim)
+# eval_dataloader = DataLoader(Data=eval_Datas)
 ####################################### config for data #######################################
 
 
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-# features = [10, 10, 10, 10, 1]
+# features = [50, 50, 50, 50, 1]
 # features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
 features = [2, 3, 1]
 ####################################### config for NN #######################################
@@ -74,19 +77,17 @@ features = [2, 3, 1]
 ####################################### config for penalty param #######################################
 penalty_param_update_factor = 2
 init_penalty_param = 1
-panalty_param_upper_bound = 10**6
-# converge_tol = 0.001
-uncons_optim_num_echos = 10
+panalty_param_upper_bound = 150
+uncons_optim_num_echos = 1000
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
 decay_rate = 0.9
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 1
+max_iter_train = 5
 merit_func_penalty_param = 100
 penalty_param_for_mul = 5
-# cons_violation = 0.001 # threshold for updating penalty param
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
 ####################################### config for penalty param #######################################
@@ -107,7 +108,7 @@ visual = Visualization(current_dir)
 ####################################### config for SQP #######################################
 # qp = EqualityConstrainedQP(tol=1e-5, refine_regularization=3., refine_maxiter=50)
 qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS"
-SQP_num_iter = 5000
+SQP_num_iter = 100
 hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
@@ -116,6 +117,7 @@ line_search_condition = "strong-wolfe"  # armijo, goldstein, strong-wolfe or wol
 line_search_decrease_factor = 0.8
 group_labels = list(range(1,2*M+1)) * 2
 qr_ind_tol = 1e-5
+merit_func_penalty_param = 150
 ####################################### config for SQP #######################################
 
 
@@ -127,9 +129,9 @@ qr_ind_tol = 1e-5
 #                     'l2_Penalty_experiment', \
 #                     'linfinity_Penalty_experiment', \
 #                     'Augmented_Lag_experiment', \    
-#                     'Pillo_Penalty_experiment', \ # check     2
+#                     'Pillo_Penalty_experiment', \
 #                     'New_Augmented_Lag_experiment',\
-#                     'Fletcher_Penalty_experiment', \  # not good
+#                     'Fletcher_Penalty_experiment', \
 #                     'Bert_Aug_Lag_experiment',\
 #                     'SQP_experiment']:
 
@@ -166,21 +168,27 @@ for experiment in ['PINN_experiment']:
         
         for beta in beta_list:
             data, sample_data, IC_sample_data, ui = dataloader.get_data(\
-                x_data_min, x_data_max, t_data_min, t_data_max, x_sample_min, \
-                    x_sample_max, t_sample_min, t_sample_max, beta, M)
+                xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, \
+                    x_sample_min, x_sample_max, t_sample_min, t_sample_max, \
+                        beta, M, data_key_num, sample_data_key_num)
+            
             params = model.init_params(key=key, data=data)
             params_mul = [params, init_mul]
+            eval_data, eval_ui = dataloader.get_eval_data(xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, beta)
 
-            eval_data, _, _, eval_ui = eval_dataloader.get_data(x_data_min, x_data_max, \
-            t_data_min, t_data_max, x_sample_min, x_sample_max, t_sample_min, \
-            t_sample_max, beta, M)
+            penalty_param = init_penalty_param
+            penalty_param_v = init_penalty_param_v
+            penalty_param_mu = init_penalty_param_mu
+            uncons_optim_learning_rate = init_uncons_optim_learning_rate
+            mul = init_mul
             
             if experiment == "SQP_experiment":
-                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta, N, M)
+                optim_components = OptimComponents(model, data, sample_data, IC_sample_data, ui[0], beta, N, M, group_labels)
                 sqp_optim = SQP_Optim(model, optim_components, qp, features, group_labels, hessian_param, M, params)
                 params, total_l_k_loss_list, total_eq_cons_loss_list, kkt_residual_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
                                             line_search_max_iter, line_search_condition, \
-                                            line_search_decrease_factor, init_stepsize, line_search_tol, qr_ind_tol)
+                                            line_search_decrease_factor, init_stepsize, \
+                                            line_search_tol, qr_ind_tol, merit_func_penalty_param)
                 absolute_error, l2_relative_error, eval_u_theta = \
                     sqp_optim.evaluation(params, N, eval_data, eval_ui[0])
             
@@ -215,11 +223,6 @@ for experiment in ['PINN_experiment']:
                     
                 
                 optim = Optim(model, loss, panalty_param_upper_bound)
-                penalty_param = init_penalty_param
-                penalty_param_v = init_penalty_param_v
-                penalty_param_mu = init_penalty_param_mu
-                uncons_optim_learning_rate = init_uncons_optim_learning_rate
-                mul = init_mul
                 total_loss_list = []
                 total_eq_cons_loss_list = []
                 total_l_k_loss_list = []
@@ -279,9 +282,9 @@ for experiment in ['PINN_experiment']:
             visual.line_graph(eval_u_theta, "/{activation_name}/u_theta".\
                     format(activation_name=activation_name), experiment=experiment, beta=beta)
             visual.heatmap(eval_data, eval_ui[0], "/{activation_name}/True_sol_heatmap".\
-                    format(activation_name=activation_name), experiment=experiment, beta=beta)
+                    format(activation_name=activation_name), experiment=experiment, beta=beta, nt=nt, xgrid=xgrid)
             visual.heatmap(eval_data, eval_u_theta, "/{activation_name}/u_theta_heatmap".\
-                    format(activation_name=activation_name), experiment=experiment, beta=beta)
+                    format(activation_name=activation_name), experiment=experiment, beta=beta, nt=nt, xgrid=xgrid)
 
             absolute_error_list.append(absolute_error)
             l2_relative_error_list.append(l2_relative_error)

@@ -47,7 +47,7 @@ class BertAugLag:
     
 
     def eq_cons_loss(self, params):
-        return  jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+        return jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
 
 
     def L(self, params_mul):

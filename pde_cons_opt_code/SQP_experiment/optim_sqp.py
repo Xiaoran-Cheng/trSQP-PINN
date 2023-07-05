@@ -13,11 +13,13 @@ import numpy as np
 import pandas as pd
 from flax.core.frozen_dict import FrozenDict, unfreeze
 from jaxopt import BacktrackingLineSearch, HagerZhangLineSearch
+from functools import partial
+from jax.interpreters.xla import DeviceArray
 
 
 
 class OptimComponents:
-    def __init__(self, model, data, sample_data, IC_sample_data, ui, beta, N, M):
+    def __init__(self, model, data, sample_data, IC_sample_data, ui, beta, N, M, group_labels):
         self.model = model
         self.beta = beta
         self.data = data
@@ -26,6 +28,7 @@ class OptimComponents:
         self.ui = ui
         self.N = N
         self.M = M
+        self.group_labels = group_labels
 
 
     def obj(self, params):
@@ -43,22 +46,41 @@ class OptimComponents:
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
-    
 
+    
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
 
     def eq_cons_loss(self, params):
-        return 0.5 * jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=1))
+        return jnp.linalg.norm(self.eq_cons(params), ord=1)
+
+
+    def L(self, params, mul):
+        return self.obj(params) + self.eq_cons(params) @ mul
+    
+
+    def flat_single_dict(self, dicts):
+        return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
+                        applymap(lambda x: x.flatten()).values.flatten())
+    
+
+    def flat_multi_dict(self, dicts):
+        return np.concatenate(pd.DataFrame.from_dict(\
+                unfreeze(dicts['params'])).\
+                    apply(lambda x: x.explode()).set_index([self.group_labels]).\
+                        sort_index().applymap(lambda x: x.flatten()).values.flatten())
+
+
+    # def merit_func(self, params, mul, penalty_param_mu, penalty_param_v):
+    #     grads_L = self.flat_single_dict(jacfwd(self.L, 0)(params, mul))
+    #     flatted_gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params)), 2*self.M))
+    #     second_penalty_part = jnp.square(jnp.linalg.norm(flatted_gra_eq_cons @ grads_L, ord=2))
+    #     return self.L(params, mul) + 0.5 * penalty_param_mu * self.eq_cons_loss(params) + 0.5 * penalty_param_v * second_penalty_part
     
 
     def merit_func(self, params, merit_func_penalty_param):
-        return self.l_k(params=params) + 1 / (2*self.M) * merit_func_penalty_param * self.eq_cons_loss(params)
-    
-
-    def L(self, params, mul):
-        return self.l_k(params) + self.eq_cons(params) @ mul
+        return self.obj(params=params) + 1 / (2*self.M) * merit_func_penalty_param *  self.eq_cons_loss(params)
 
 
     def get_grads(self, params):
@@ -67,7 +89,7 @@ class OptimComponents:
         # Hlag = hessian(self.lag, 0)(params, mul)
         return gra_obj, gra_eq_cons
     
-        
+
         
 class SQP_Optim:
     def __init__(self, model, optim_components, qp, feature, group_labels, hessian_param, M, params) -> None:
@@ -79,18 +101,6 @@ class SQP_Optim:
         self.hessian_param = hessian_param
         self.M = M
         self.layer_names = params["params"].keys()
-
-    
-    def flat_single_dict(self, dicts):
-        return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-                        applymap(lambda x: x.flatten()).values.flatten())
-    
-
-    def flat_multi_dict(self, dicts):
-        return np.concatenate(pd.DataFrame.from_dict(\
-                unfreeze(dicts['params'])).\
-                    apply(lambda x: x.explode()).set_index([self.group_labels]).\
-                        sort_index().applymap(lambda x: x.flatten()).values.flatten())
     
 
     def get_li_in_cons_index(self, mat, qr_ind_tol):
@@ -111,7 +121,17 @@ class SQP_Optim:
             return recovered_target
 
 
-    def SQP_optim(self, params, num_iter, maxiter, condition, decrease_factor, init_stepsize, line_search_tol, qr_ind_tol):
+    # def penalty_updating_condition(self, params, mul, delta_params, delta_mul, penalty_param_mu, penalty_param_v):
+    #     dicts = jacfwd(self.optim_components.obj, 0)(params)
+    #     dd = pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
+    #                     applymap(lambda x: x.flatten(x)).values.flatten()
+    #     return dd
+        # grads_params_L = jacfwd(self.optim_components.merit_func, 0)(params, mul, penalty_param_mu, penalty_param_v)
+        # grads_params_mul = jacfwd(self.optim_components.merit_func, 1)(params, mul, penalty_param_mu, penalty_param_v)
+        # return self.optim_components.merit_func(params, mul, penalty_param_mu, penalty_param_v)
+
+
+    def SQP_optim(self, params, num_iter, maxiter, condition, decrease_factor, init_stepsize, line_search_tol, qr_ind_tol, merit_func_penalty_param):
         obj_list = []
         eq_con_list = []
         kkt_residual_list = []
@@ -121,9 +141,9 @@ class SQP_Optim:
             gra_obj, gra_eq_cons = self.optim_components.get_grads(params=params)
             eq_cons = self.optim_components.eq_cons(params=params)
             current_obj = self.optim_components.obj(params=params)
-            flatted_gra_obj = self.flat_single_dict(gra_obj)
-            flatted_current_params = self.flat_single_dict(params)
-            flatted_gra_eq_cons = self.flat_multi_dict(gra_eq_cons)
+            flatted_gra_obj = self.optim_components.flat_single_dict(gra_obj)
+            flatted_current_params = self.optim_components.flat_single_dict(params)
+            flatted_gra_eq_cons = self.optim_components.flat_multi_dict(gra_eq_cons)
             Q = self.hessian_param * jnp.identity(flatted_gra_obj.shape[0])
             c = flatted_gra_obj
             A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
@@ -134,11 +154,13 @@ class SQP_Optim:
             flatted_delta_params = sol.primal
             kkt_residual = self.qp.l2_optimality_error(params=sol, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
-            ls = BacktrackingLineSearch(fun=self.optim_components.obj, maxiter=maxiter, condition=condition,
+            partial_optim_components_merit_func = partial(self.optim_components.merit_func, merit_func_penalty_param=merit_func_penalty_param)
+            ls = BacktrackingLineSearch(fun=partial_optim_components_merit_func, maxiter=maxiter, condition=condition,
                                         decrease_factor=decrease_factor, tol=line_search_tol)
             stepsize, _ = ls.run(init_stepsize=init_stepsize, params=params,
                                     descent_direction=delta_params,
                                             value=current_obj, grad=gra_obj)
+            
             flatted_updated_params = stepsize * flatted_delta_params + flatted_current_params
             params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
             obj_list.append(self.optim_components.obj(params))
@@ -153,10 +175,6 @@ class SQP_Optim:
         l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
  
-
-
-
-
 
 
 

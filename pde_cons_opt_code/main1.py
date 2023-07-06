@@ -75,10 +75,10 @@ features = [2, 3, 1]
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 2
+penalty_param_update_factor = 10
 init_penalty_param = 1
 panalty_param_upper_bound = 150
-uncons_optim_num_echos = 1000
+uncons_optim_num_echos = 100
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
 decay_rate = 0.9
@@ -86,7 +86,6 @@ end_value = 0.0001
 transition_begin = 0
 staircase = True
 max_iter_train = 5
-merit_func_penalty_param = 100
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
@@ -108,7 +107,7 @@ visual = Visualization(current_dir)
 ####################################### config for SQP #######################################
 # qp = EqualityConstrainedQP(tol=1e-5, refine_regularization=3., refine_maxiter=50)
 qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS"
-SQP_num_iter = 100
+SQP_num_iter = 1000
 hessian_param = 0.6 # 0.6最好
 init_stepsize = 1.0
 line_search_tol = 0.001
@@ -117,7 +116,7 @@ line_search_condition = "strong-wolfe"  # armijo, goldstein, strong-wolfe or wol
 line_search_decrease_factor = 0.8
 group_labels = list(range(1,2*M+1)) * 2
 qr_ind_tol = 1e-5
-merit_func_penalty_param = 150
+merit_func_penalty_param = 1
 ####################################### config for SQP #######################################
 
 
@@ -135,12 +134,12 @@ merit_func_penalty_param = 150
 #                     'Bert_Aug_Lag_experiment',\
 #                     'SQP_experiment']:
 
-for experiment in ['PINN_experiment']:
+for experiment in ['Bert_Aug_Lag_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
     #                         'cos']:
-    for activation_input in ['identity']:
+    for activation_input in ['sin']:
 
         if activation_input == "sin":
             activation = jnp.sin

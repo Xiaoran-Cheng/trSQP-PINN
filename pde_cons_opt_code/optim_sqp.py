@@ -57,7 +57,7 @@ class SQP_Optim:
     
 
     def eq_cons_loss(self, params):
-        return jnp.linalg.norm(self.eq_cons(params), ord=1)
+        return jnp.linalg.norm(self.eq_cons(params), ord=2)
 
 
     def L(self, params, mul):
@@ -87,7 +87,6 @@ class SQP_Optim:
         return self.obj(params=params) + 1 / (2*self.M) * merit_func_penalty_param *  self.eq_cons_loss(params)
 
     
-
     def get_li_in_cons_index(self, mat, qr_ind_tol):
         _, R = jnp.linalg.qr(mat)
         independent = jnp.where(jnp.abs(R.diagonal()) > qr_ind_tol)[0]
@@ -136,8 +135,10 @@ class SQP_Optim:
             li_ind_index = self.get_li_in_cons_index(A, qr_ind_tol)
             A = A[li_ind_index, :]
             b = -eq_cons[li_ind_index]
+            # sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b)).params
             sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None).params
             flatted_delta_params = sol.primal
+            # kkt_residual = self.qp.l2_optimality_error(params=sol, params_obj=(Q, c), params_eq=(A, b))
             kkt_residual = self.qp.l2_optimality_error(params=sol, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
             partial_optim_components_merit_func = partial(self.merit_func, merit_func_penalty_param=merit_func_penalty_param)
@@ -156,8 +157,13 @@ class SQP_Optim:
         
 
     def evaluation(self, params, N, data, ui):
-        u_theta = self.model.u_theta(params = params, data=data)
+        u_theta = self.model.u_theta(params=params, data=data)
         absolute_error = 1/N * jnp.linalg.norm(u_theta-ui, ord = 2)
         l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
  
+
+
+
+
+

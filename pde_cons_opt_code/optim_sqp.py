@@ -93,7 +93,6 @@ class SQP_Optim:
         rk = thetak * yk + (1 - thetak) * Hk @ sk
         Hk1 = Hk - ((Hk @ sk @ sk.T @ Hk) / skHksk) + ((rk @ rk.T) / (sk.T @ rk))
         Hk1 = 0.5 * (Hk1 + Hk1.T)
-        print(self.is_psd(Hk1))
         if self.is_psd(Hk1):
             return Hk1
         else:
@@ -157,7 +156,7 @@ class SQP_Optim:
         kkt_residual_list = []
         shapes = pd.DataFrame.from_dict(unfreeze(params["params"])).applymap(lambda x: x.shape).values.flatten()
         sizes = [np.prod(shape) for shape in shapes]
-        # Hk = self.hessian_param * jnp.identity(sum(sizes))
+        updated_Hk = self.hessian_param * jnp.identity(sum(sizes))
         for _ in tqdm(range(num_iter)):
             gra_obj = jacfwd(self.obj, 0)(params)
             gra_eq_cons = jacfwd(self.eq_cons, 0)(params)
@@ -166,17 +165,24 @@ class SQP_Optim:
             flatted_gra_obj = self.flat_single_dict(gra_obj)
             flatted_current_params = self.flat_single_dict(params)
             flatted_gra_eq_cons = self.flat_multi_dict(gra_eq_cons)
-            # Q = Hk
-            Q = self.hessian_param * jnp.identity(flatted_gra_obj.shape[0])
+
             c = flatted_gra_obj
             A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
             li_ind_index = self.get_li_in_cons_index(A, qr_ind_tol)
             A = A[li_ind_index, :]
             b = -eq_cons[li_ind_index]
-            # sol = self.qp.run(params_obj=(Q, c), params_eq=(A, b)).params
-            sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
+            li_d_index = jnp.sort(jnp.setdiff1d(jnp.arange(2*self.M), li_ind_index))
+
+            try:
+                Q = updated_Hk
+                sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
+            except:
+                Q = self.hessian_param * jnp.identity(sum(sizes))
+                sol = self.qp.run(init_params=params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
+            else:
+                Hk = updated_Hk
+
             flatted_delta_params = sol.params.primal
-            # kkt_residual = self.qp.l2_optimality_error(params=sol, params_obj=(Q, c), params_eq=(A, b))
             kkt_residual = self.qp.l2_optimality_error(params=sol.params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
             partial_optim_components_merit_func = partial(self.merit_func, merit_func_penalty_param=merit_func_penalty_param)
@@ -186,12 +192,22 @@ class SQP_Optim:
                                     descent_direction=delta_params,
                                             value=current_obj, grad=gra_obj)
             flatted_updated_params = stepsize * flatted_delta_params + flatted_current_params
-            params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
-            # Hk = self.bfgs_hessian(params, updated_params, sol.params.dual_eq, stepsize, flatted_delta_params, Hk)
-            # params = updated_params
+            updated_params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
+            mulk1 = sol.params.dual_eq
+            
+            if len(li_d_index) != 0:
+                for i, index in enumerate(li_d_index):
+                    if i != 0:
+                        mulk1 = jnp.insert(mulk1, index+1, 1.0)
+                    else:
+                        mulk1 = jnp.insert(mulk1, index, 1.0)
+            
+            updated_Hk = self.bfgs_hessian(params, updated_params, mulk1, stepsize, flatted_delta_params, Hk)
+            params = updated_params
             obj_list.append(self.obj(params))
             eq_con_list.append(self.eq_cons_loss(params))
             kkt_residual_list.append(kkt_residual)
+            
         return params, obj_list, eq_con_list, kkt_residual_list
         
 
@@ -201,3 +217,5 @@ class SQP_Optim:
         l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
  
+
+

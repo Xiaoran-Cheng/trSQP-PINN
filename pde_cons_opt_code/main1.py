@@ -69,8 +69,8 @@ t_sample_max = 1
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
-features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-# features = [2, 3, 1]
+# features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 

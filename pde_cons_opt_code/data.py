@@ -14,7 +14,7 @@ class Data:
         x = jnp.arange(x_min, x_max, x_max/xgrid)
         t = jnp.linspace(t_min, t_max, nt).reshape(-1, 1)
         X, T = np.meshgrid(x, t)
-        X_star = np.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+        X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
         return X_star
     
 

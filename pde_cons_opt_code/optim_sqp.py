@@ -173,6 +173,7 @@ class SQP_Optim:
             A = jnp.array(jnp.split(flatted_gra_eq_cons, 2*self.M))
             li_ind_index = self.get_li_in_cons_index(A, qr_ind_tol)
             A = A[li_ind_index, :]
+            print(A.shape)
             b = -eq_cons[li_ind_index]
             li_d_index = jnp.sort(jnp.setdiff1d(jnp.arange(2*self.M), li_ind_index))
 
@@ -189,7 +190,6 @@ class SQP_Optim:
             kkt_residual = self.qp.l2_optimality_error(params=sol.params, params_obj=(Q, c), params_eq=(A, b), params_ineq=None)
             delta_params = self.get_recovered_dict(flatted_delta_params, shapes, sizes)
 
-            # self.eq_cons(flatted_delta_params + flatted_current_params)
 
 
 
@@ -198,16 +198,12 @@ class SQP_Optim:
 
 
 
-
-
-
-
-            ls = BacktrackingLineSearch(fun=self.merit_func, maxiter=maxiter, condition=condition,
-                                        decrease_factor=decrease_factor, tol=line_search_tol)
-            stepsize, _ = ls.run(init_stepsize=init_stepsize, \
-                                 params=params,
-                                descent_direction=delta_params)
-            # stepsize = 0.5
+            # ls = BacktrackingLineSearch(fun=self.merit_func, maxiter=maxiter, condition=condition,
+            #                             decrease_factor=decrease_factor, tol=line_search_tol)
+            # stepsize, _ = ls.run(init_stepsize=init_stepsize, \
+            #                      params=params,
+            #                     descent_direction=delta_params)
+            stepsize = 0.5
             print(stepsize, flatted_delta_params.sum())
             flatted_updated_params = stepsize * flatted_delta_params + flatted_current_params
             updated_params = self.get_recovered_dict(flatted_updated_params, shapes, sizes)
@@ -222,7 +218,7 @@ class SQP_Optim:
                         mulk1 = jnp.insert(mulk1, index, 1.0)
 
 
-            updated_Hk = self.bfgs_hessian(params, updated_params, mulk1, stepsize, flatted_delta_params, Hk)
+            # updated_Hk = self.bfgs_hessian(params, updated_params, mulk1, stepsize, flatted_delta_params, Hk)
             params = updated_params
             mulk = mulk1
             obj_list.append(self.obj(params))
@@ -360,7 +356,7 @@ visual = Visualization(current_dir)
 ####################################### config for SQP #######################################
 # qp = EqualityConstrainedQP(tol=0.001) # , refine_regularization=3, refine_maxiter=50
 qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS" , implicit_diff_solve=True
-SQP_num_iter = 40
+SQP_num_iter = 100
 hessian_param = 0.6
 init_stepsize = 1.0
 line_search_tol = 0
@@ -440,8 +436,8 @@ for experiment in ['SQP_experiment']:
             sizes = [2, 3, 1, 4, 6, 3]
             shapes = [(2,), (3,), (1,), (2, 2), (2, 3), (3, 1)]
             
-            # params = model.init_params(key=key, data=data)
-            params = get_recovered_dict(jnp.array(pd.read_csv("params.csv").iloc[:,0].tolist())+0.1, shapes, sizes)
+            params = model.init_params(key=key, data=data)
+            # params = get_recovered_dict(jnp.array(pd.read_csv("params.csv").iloc[:,0].tolist())+0.1, shapes, sizes)
 
             params_mul = [params, init_mul]
             eval_data, eval_ui = dataloader.get_eval_data(xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, beta)

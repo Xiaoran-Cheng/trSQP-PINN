@@ -1,2 +1,2 @@
 ,Beta,absolute_error,l2_relative_error,activation,experiment
-0,10.0,0.054443057626485825,0.0004812132101505995,sin,SQP_experiment
+0,10.0,1.5867162942886353,0.014024723321199417,sin,SQP_experiment

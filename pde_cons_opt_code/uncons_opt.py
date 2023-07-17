@@ -21,9 +21,9 @@ class Optim:
         self.panalty_param_upper_bound = panalty_param_upper_bound
 
 
-    def check_converge(self, grad_loss):
-        return np.square(np.linalg.norm(np.concatenate(pd.DataFrame.from_dict(unfreeze(grad_loss["params"])).\
-                        applymap(lambda x: x.flatten()).values.flatten()),ord=2))
+    # def check_converge(self, grad_loss):
+    #     return np.square(np.linalg.norm(np.concatenate(pd.DataFrame.from_dict(unfreeze(grad_loss["params"])).\
+    #                     applymap(lambda x: x.flatten()).values.flatten()),ord=2))
 
 
     def update(self, opt, grads, optim_object):

@@ -28,17 +28,17 @@ from jax import random
 import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
-from jaxopt import EqualityConstrainedQP, CvxpyQP, OSQP
+# from jaxopt import EqualityConstrainedQP, CvxpyQP, OSQP
 import jax.numpy as jnp
 import optax
-from flax.core.frozen_dict import FrozenDict, unfreeze
+# from flax.core.frozen_dict import FrozenDict, unfreeze
 import numpy as np
 import jaxlib.xla_extension as xla
 
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [10]
+beta_list = [30]
 xgrid = 256
 nt = 100
 N=1000
@@ -68,8 +68,8 @@ t_sample_max = 1
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
-# features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-features = [2, 3, 1]
+features = [20, 20, 20, 20, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+# features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 
@@ -77,14 +77,14 @@ features = [2, 3, 1]
 penalty_param_update_factor = 2
 init_penalty_param = 1
 panalty_param_upper_bound = 150
-uncons_optim_num_echos = 200
+uncons_optim_num_echos = 600
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
 decay_rate = 0.9
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 10
+max_iter_train = 1
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
@@ -122,19 +122,19 @@ group_labels = list(range(1,2*M+1)) * 2
 
 
 
-
-# for experiment in ['PINN_experiment', \
-#                     'l1_Penalty_experiment', \
-#                     'l2_Penalty_experiment', \
-#                     'linfinity_Penalty_experiment', \
-#                     'Augmented_Lag_experiment', \    
-#                     'Pillo_Penalty_experiment', \
-#                     'New_Augmented_Lag_experiment',\
-#                     'Fletcher_Penalty_experiment', \
-#                     'Bert_Aug_Lag_experiment',\
+error_df_list = []
+# for experiment in ['PINN_experiment', 
+#                     'l1_Penalty_experiment', 
+#                     'l2_Penalty_experiment', 
+#                     'linfinity_Penalty_experiment', 
+#                     'Augmented_Lag_experiment', 
+#                     'Pillo_Penalty_experiment', 
+#                     'New_Augmented_Lag_experiment',
+#                     'Fletcher_Penalty_experiment', 
+#                     'Bert_Aug_Lag_experiment',
 #                     'SQP_experiment']:
 
-error_df_list = []
+
 for experiment in ['SQP_experiment']:
 
     # for activation_input in ['sin', \
@@ -173,19 +173,19 @@ for experiment in ['SQP_experiment']:
                         beta, M, data_key_num, sample_data_key_num)
             
 
-            def get_recovered_dict(flatted_target, shapes, sizes):
-                subarrays = np.split(flatted_target, np.cumsum(sizes)[:-1])
-                reshaped_arrays = [subarray.reshape(shape) for subarray, shape in zip(subarrays, shapes)]
-                flatted_target_df = pd.DataFrame(np.array(reshaped_arrays, dtype=object).\
-                            reshape(2,len(features))).applymap(lambda x: x)
-                flatted_target_df.columns = ['Dense_0', 'Dense_1', 'Dense_2']
-                flatted_target_df.index = ["bias", "kernel"]
-                flatted_target_df.sort_index(ascending=False, inplace=True)
-                recovered_target = FrozenDict({"params": flatted_target_df.to_dict()})
-                return recovered_target
+            # def get_recovered_dict(flatted_target, shapes, sizes):
+            #     subarrays = np.split(flatted_target, np.cumsum(sizes)[:-1])
+            #     reshaped_arrays = [subarray.reshape(shape) for subarray, shape in zip(subarrays, shapes)]
+            #     flatted_target_df = pd.DataFrame(np.array(reshaped_arrays, dtype=object).\
+            #                 reshape(2,len(features))).applymap(lambda x: x)
+            #     flatted_target_df.columns = ['Dense_0', 'Dense_1', 'Dense_2']
+            #     flatted_target_df.index = ["bias", "kernel"]
+            #     flatted_target_df.sort_index(ascending=False, inplace=True)
+            #     recovered_target = FrozenDict({"params": flatted_target_df.to_dict()})
+            #     return recovered_target
             
-            sizes = [2, 3, 1, 4, 6, 3]
-            shapes = [(2,), (3,), (1,), (2, 2), (2, 3), (3, 1)]
+            # sizes = [2, 3, 1, 4, 6, 3]
+            # shapes = [(2,), (3,), (1,), (2, 2), (2, 3), (3, 1)]
             
             params = model.init_params(key=key, data=data)
             # params = get_recovered_dict(jnp.array(pd.read_csv("params.csv").iloc[:,0].tolist())+0.5, shapes, sizes)
@@ -281,7 +281,7 @@ for experiment in ['SQP_experiment']:
                     else:
                         print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 
-                
+                print(params)
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, N, eval_data, eval_ui[0])
                 total_loss_list = jnp.concatenate(jnp.array(total_loss_list))

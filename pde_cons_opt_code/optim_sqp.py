@@ -11,9 +11,9 @@ from jax import jacfwd
 from tqdm import tqdm
 import numpy as np
 import pandas as pd
-from flax.core.frozen_dict import FrozenDict, unfreeze
+# from flax.core.frozen_dict import FrozenDict, unfreeze
 from scipy.optimize import minimize
-import jaxlib.xla_extension as xla
+# import jaxlib.xla_extension as xla
 import jax
 
 
@@ -128,7 +128,7 @@ class SQP_Optim:
         params_opt = self.unflatten_params(solution.x, treedef)
         print(solution)
         return params_opt
-    
+
 
     def evaluation(self, params, N, data, ui):
         u_theta = self.model.u_theta(params=params, data=data)

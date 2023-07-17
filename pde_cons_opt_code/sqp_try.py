@@ -38,7 +38,7 @@ class SQP_Optim:
     def obj(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
         return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
-    
+
 
     def IC_cons(self, params):
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
@@ -288,11 +288,11 @@ from multiprocessing import Pool
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [10]
+beta_list = [10**-4]
 xgrid = 256
 nt = 100
-N=100
-M=5
+N=1000
+M=3
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -317,9 +317,9 @@ t_sample_max = 1
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-# features = [50, 50, 50, 50, 1]
+features = [50, 50, 50, 50, 1]
 # features = [10, 10, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
-features = [2, 3, 1]
+# features = [2, 3, 1]
 ####################################### config for NN #######################################
 
 

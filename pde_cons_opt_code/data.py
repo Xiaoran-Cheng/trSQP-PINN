@@ -32,11 +32,9 @@ class Data:
     def sample_data(self, xgrid, nt, x_min, x_max, t_min, t_max, key_num):
         key = random.PRNGKey(key_num)
         X_star = self.data_grid(xgrid, nt, x_min, x_max, t_min, t_max)
-        data_index = random.randint(key, shape=(self.M,), minval=0, maxval=len(X_star))
+        data_index = random.randint(key, shape=(2*self.M,), minval=0, maxval=len(X_star))
         X_star = X_star[data_index,:]
-        xj = X_star[:,0].reshape(self.dim-1,self.M)
-        tj = X_star[:,1].reshape(self.dim-1,self.M)
+        xj = X_star[:,0].reshape(self.dim-1,2*self.M)
+        tj = X_star[:,1].reshape(self.dim-1,2*self.M)
         return xj, tj
     
-
-

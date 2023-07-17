@@ -20,9 +20,9 @@ class DataLoader:
         xi, ti, ui = generated_data
         xj, tj = sample_data
         data = jnp.concatenate((xi.T, ti.T), axis=1)
-        sample_data = jnp.concatenate((xj.T, tj.T), axis=1)
+        sample_data = jnp.concatenate((xj.T[:M,:], tj.T[:M,:]), axis=1)
         zeros = jnp.zeros((M,1))
-        IC_sample_data = jnp.concatenate((xj.T, zeros), axis=1)
+        IC_sample_data = jnp.concatenate((xj.T[M:,:], zeros), axis=1)
         return data, sample_data, IC_sample_data, ui
     
 
@@ -33,4 +33,5 @@ class DataLoader:
         ti = X_star[:,1].reshape(1,data_grid_len)
         ui = Transport_eq(beta=beta).solution(xi, ti)
         return X_star, ui
+
 

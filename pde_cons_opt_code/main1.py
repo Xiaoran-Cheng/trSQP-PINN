@@ -38,7 +38,7 @@ import jaxlib.xla_extension as xla
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [30]
+beta_list = [25]
 xgrid = 256
 nt = 100
 N=1000
@@ -68,7 +68,7 @@ t_sample_max = 1
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
-features = [20, 20, 20, 20, 1] # 搭配 SQP_num_iter = 100， hessian_param = 0.6 # 0.6最好， init_stepsize = 1.0， line_search_tol = 0.001， line_search_max_iter = 30， line_search_condition = "strong-wolfe" ，line_search_decrease_factor = 0.8
+features = [30, 30, 30, 30, 1]
 # features = [2, 3, 1]
 ####################################### config for NN #######################################
 
@@ -281,7 +281,6 @@ for experiment in ['SQP_experiment']:
                     else:
                         print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 
-                print(params)
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, N, eval_data, eval_ui[0])
                 total_loss_list = jnp.concatenate(jnp.array(total_loss_list))
@@ -323,6 +322,3 @@ for experiment in ['SQP_experiment']:
 pd.concat(error_df_list).to_csv(folder_path+".csv")
 end_time = time.time()
 print(f"Execution Time: {end_time - start_time} seconds")
-
-
-

@@ -570,3 +570,6 @@ print(f"Execution Time: {end_time - start_time} seconds")
 
 
 
+from jax import random
+random.randint(random.PRNGKey(1), shape=(100,), minval=0, maxval=25600)
+

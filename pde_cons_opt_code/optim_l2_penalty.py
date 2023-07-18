@@ -48,6 +48,6 @@ class l2Penalty:
 
 
     def loss(self, params, penalty_param):
-        return  self.l_k(params=params) + 1 / (2*self.M) * penalty_param *  self.eq_cons_loss(params)
+        return  self.l_k(params=params) + penalty_param * self.eq_cons_loss(params)
 
 

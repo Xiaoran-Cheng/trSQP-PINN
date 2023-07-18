@@ -51,7 +51,7 @@ class PilloPenalty:
     
 
     def L(self, params, mul):
-        return self.l_k(params) + self.eq_cons(params) @ mul
+        return self.l_k(params) - self.eq_cons(params) @ mul
     
 
     def flat_single_dict(self, dicts):

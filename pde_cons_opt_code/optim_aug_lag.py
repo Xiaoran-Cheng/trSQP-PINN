@@ -49,7 +49,7 @@ class AugLag:
 
 
     def L(self, params, mul):
-        return self.l_k(params) + self.eq_cons(params) @ mul
+        return self.l_k(params) - self.eq_cons(params) @ mul
 
 
     def loss(self, params, mul, penalty_param):

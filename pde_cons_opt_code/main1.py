@@ -38,7 +38,7 @@ import jaxlib.xla_extension as xla
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [25]
+beta_list = [10]
 xgrid = 256
 nt = 100
 N=1000
@@ -68,23 +68,23 @@ t_sample_max = 1
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
-features = [30, 30, 30, 30, 1]
-# features = [2, 3, 1]
+# features = [30, 30, 30, 30, 1]
+features = [3, 3, 1]
 ####################################### config for NN #######################################
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 2
+penalty_param_update_factor = 10
 init_penalty_param = 1
-panalty_param_upper_bound = 150
-uncons_optim_num_echos = 600
+panalty_param_upper_bound = 10**6
+uncons_optim_num_echos = 1000
 init_uncons_optim_learning_rate = 0.001
 transition_steps = uncons_optim_num_echos
 decay_rate = 0.9
 end_value = 0.0001
 transition_begin = 0
 staircase = True
-max_iter_train = 1
+max_iter_train = 10
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
@@ -113,7 +113,7 @@ visual = Visualization(current_dir)
 # line_search_max_iter = 100
 # line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
 # line_search_decrease_factor = 0.8
-maxiter = 1000000
+maxiter = 100000
 group_labels = list(range(1,2*M+1)) * 2
 # qr_ind_tol = 1e-5
 # merit_func_penalty_param = 1
@@ -135,7 +135,7 @@ error_df_list = []
 #                     'SQP_experiment']:
 
 
-for experiment in ['SQP_experiment']:
+for experiment in ['l1_Penalty_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \

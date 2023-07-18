@@ -42,7 +42,7 @@ beta_list = [10]
 xgrid = 256
 nt = 100
 N=1000
-M=3
+M=6
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -92,9 +92,9 @@ init_penalty_param_mu = init_penalty_param
 
 
 ####################################### config for lagrange multiplier #######################################
-init_mul = jnp.ones(2*M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
+init_mul = jnp.ones(M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
 mul_num_echos = 10 # for Pillo_Penalty_experiment
-alpha = 150 # for New_Augmented_Lag_experiment
+alpha = 1 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
 
 
@@ -114,7 +114,7 @@ visual = Visualization(current_dir)
 # line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
 # line_search_decrease_factor = 0.8
 maxiter = 100000
-group_labels = list(range(1,2*M+1)) * 2
+group_labels = list(range(1,M+1)) * 2
 # qr_ind_tol = 1e-5
 # merit_func_penalty_param = 1
 ####################################### config for SQP #######################################
@@ -123,18 +123,18 @@ group_labels = list(range(1,2*M+1)) * 2
 
 
 error_df_list = []
-for experiment in ['PINN_experiment', 
-                    'l1_Penalty_experiment', 
-                    'l2_Penalty_experiment', 
-                    'linfinity_Penalty_experiment', 
-                    'Augmented_Lag_experiment',  
-                    'New_Augmented_Lag_experiment',
-                    'Fletcher_Penalty_experiment', 
-                    'Bert_Aug_Lag_experiment',
-                    'SQP_experiment']:
+# for experiment in ['PINN_experiment', 
+#                     'l1_Penalty_experiment', 
+#                     'l2_Penalty_experiment', 
+#                     'linfinity_Penalty_experiment', 
+#                     'Augmented_Lag_experiment',  
+#                     'New_Augmented_Lag_experiment',
+#                     'Fletcher_Penalty_experiment', 
+#                     'Bert_Aug_Lag_experiment',
+#                     'SQP_experiment']:
 
 
-# for experiment in ['l1_Penalty_experiment']:
+for experiment in ['Augmented_Lag_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
@@ -212,7 +212,7 @@ for experiment in ['PINN_experiment',
                 total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
 
                 absolute_error, l2_relative_error, eval_u_theta = \
-                    sqp_optim.evaluation(params, N, eval_data, eval_ui[0])
+                    sqp_optim.evaluation(params, eval_data, eval_ui[0])
                 
             else:
                 if experiment == "PINN_experiment":
@@ -281,7 +281,7 @@ for experiment in ['PINN_experiment',
                         print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
-                                                params, N, eval_data, eval_ui[0])
+                                                params, eval_data, eval_ui[0])
                 total_loss_list = jnp.concatenate(jnp.array(total_loss_list))
                 total_eq_cons_loss_list = jnp.concatenate(jnp.array(total_eq_cons_loss_list))
                 total_l_k_loss_list = jnp.concatenate(jnp.array(total_l_k_loss_list))

@@ -63,7 +63,7 @@ class FletcherPenalty:
     
     def loss(self, params, penalty_param, group_labels):
         flatted_gra_l_k = self.flat_single_dict(jacfwd(self.l_k, 0)(params))
-        flatted_gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params), group_labels), 2*self.M))
+        flatted_gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params), group_labels), self.M))
         lambdax = jnp.linalg.pinv(flatted_gra_eq_cons.T) @ flatted_gra_l_k
         return self.l_k(params) - self.eq_cons(params) @ lambdax + 0.5 * penalty_param * self.eq_cons_loss(params)
         

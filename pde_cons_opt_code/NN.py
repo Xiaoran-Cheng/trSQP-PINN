@@ -12,7 +12,6 @@ class NN(nn.Module):
             x = nn.Dense(feat)(x)
             if i != len(self.features) - 1:
                 x = self.activation(x)
-                # x = x
         return x
     
     def init_params(self, key, data):

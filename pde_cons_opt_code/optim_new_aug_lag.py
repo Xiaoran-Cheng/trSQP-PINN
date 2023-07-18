@@ -71,7 +71,7 @@ class NewAugLag:
         params, mul = params_mul
         grads_fx = self.flat_single_dict(jacfwd(self.l_k, 0)(params))
         Mx = alpha
-        gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params), group_labels), 2*self.M))
+        gra_eq_cons = jnp.array(jnp.split(self.flat_multi_dict(jacfwd(self.eq_cons, 0)(params), group_labels), self.M))
         second_penalty_part = jnp.square(jnp.linalg.norm(Mx * (grads_fx + (gra_eq_cons.T @ mul)), ord=2))
         return self.L(params_mul) + penalty_param * self.eq_cons_loss(params) + second_penalty_part
 

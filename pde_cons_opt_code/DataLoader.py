@@ -20,9 +20,9 @@ class DataLoader:
         xi, ti, ui = generated_data
         xj, tj = sample_data
         data = jnp.concatenate((xi.T, ti.T), axis=1)
-        sample_data = jnp.concatenate((xj.T[:M,:], tj.T[:M,:]), axis=1)
-        zeros = jnp.zeros((M,1))
-        IC_sample_data = jnp.concatenate((xj.T[M:,:], zeros), axis=1)
+        sample_data = jnp.concatenate((xj.T[:int(M/2),:], tj.T[:int(M/2),:]), axis=1)
+        zeros = jnp.zeros((int(M/2),1))
+        IC_sample_data = jnp.concatenate((xj.T[int(M/2):,:], zeros), axis=1)
         return data, sample_data, IC_sample_data, ui
     
 

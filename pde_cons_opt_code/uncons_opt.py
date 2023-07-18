@@ -127,12 +127,9 @@ class Optim:
     #     return params, loss
     
 
-    def evaluation(self, params, N, data, ui):
-        u_theta = self.model.u_theta(params = params, data=data)
-        absolute_error = 1/N * jnp.linalg.norm(u_theta-ui, ord = 2)
-        l2_relative_error = 1/N * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
+    def evaluation(self, params, data, ui):
+        n = data.shape[0]
+        u_theta = self.model.u_theta(params=params, data=data)
+        absolute_error = 1/n * jnp.linalg.norm(u_theta-ui, ord = 2)
+        l2_relative_error = 1/n * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
         return absolute_error, l2_relative_error, u_theta
-    
-
-    
-    

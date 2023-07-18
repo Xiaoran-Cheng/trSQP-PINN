@@ -123,19 +123,18 @@ group_labels = list(range(1,2*M+1)) * 2
 
 
 error_df_list = []
-# for experiment in ['PINN_experiment', 
-#                     'l1_Penalty_experiment', 
-#                     'l2_Penalty_experiment', 
-#                     'linfinity_Penalty_experiment', 
-#                     'Augmented_Lag_experiment', 
-#                     'Pillo_Penalty_experiment', 
-#                     'New_Augmented_Lag_experiment',
-#                     'Fletcher_Penalty_experiment', 
-#                     'Bert_Aug_Lag_experiment',
-#                     'SQP_experiment']:
+for experiment in ['PINN_experiment', 
+                    'l1_Penalty_experiment', 
+                    'l2_Penalty_experiment', 
+                    'linfinity_Penalty_experiment', 
+                    'Augmented_Lag_experiment',  
+                    'New_Augmented_Lag_experiment',
+                    'Fletcher_Penalty_experiment', 
+                    'Bert_Aug_Lag_experiment',
+                    'SQP_experiment']:
 
 
-for experiment in ['l1_Penalty_experiment']:
+# for experiment in ['l1_Penalty_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \

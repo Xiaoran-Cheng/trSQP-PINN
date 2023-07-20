@@ -38,11 +38,11 @@ import jaxlib.xla_extension as xla
 
 #######################################config for data#######################################
 # beta_list = [10**-4, 30]
-beta_list = [10]
+beta_list = [30]
 xgrid = 256
 nt = 100
 N=1000
-M=6
+M=100
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -57,10 +57,6 @@ x_sample_min = 0
 x_sample_max = 2*jnp.pi
 t_sample_min = 0
 t_sample_max = 1
-
-# evaluation_data_key_num = 256
-# eval_Datas = Data(N=N, M=M, dim=dim)
-# eval_dataloader = DataLoader(Data=eval_Datas)
 ####################################### config for data #######################################
 
 
@@ -69,32 +65,34 @@ NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
 # features = [30, 30, 30, 30, 1]
-features = [3, 3, 1]
+features = [50, 50, 1]
 ####################################### config for NN #######################################
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 10
-init_penalty_param = 1
-panalty_param_upper_bound = 10**6
-uncons_optim_num_echos = 1000
-init_uncons_optim_learning_rate = 0.001
-transition_steps = uncons_optim_num_echos
-decay_rate = 0.9
-end_value = 0.0001
-transition_begin = 0
-staircase = True
-max_iter_train = 10
+penalty_param_update_factor = 2
+init_penalty_param = 2
+panalty_param_upper_bound = 100
+uncons_optim_num_echos = 100
+# init_uncons_optim_learning_rate = 0.001
+# transition_steps = uncons_optim_num_echos
+# decay_rate = 0.9
+# end_value = 0.0001
+# transition_begin = 0
+# staircase = True
+max_iter_train = 5
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
+LBFGS_linesearch = "hager-zhang"
+
 ####################################### config for penalty param #######################################
 
 
 ####################################### config for lagrange multiplier #######################################
 init_mul = jnp.ones(M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
 mul_num_echos = 10 # for Pillo_Penalty_experiment
-alpha = 1 # for New_Augmented_Lag_experiment
+alpha = 10**6 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
 
 
@@ -120,8 +118,6 @@ group_labels = list(range(1,M+1)) * 2
 ####################################### config for SQP #######################################
 
 
-
-
 error_df_list = []
 # for experiment in ['PINN_experiment', 
 #                     'l1_Penalty_experiment', 
@@ -134,7 +130,7 @@ error_df_list = []
 #                     'SQP_experiment']:
 
 
-for experiment in ['Augmented_Lag_experiment']:
+for experiment in ['SQP_experiment']:
 
     # for activation_input in ['sin', \
     #                         'tanh', \
@@ -187,6 +183,7 @@ for experiment in ['Augmented_Lag_experiment']:
             # shapes = [(2,), (3,), (1,), (2, 2), (2, 3), (3, 1)]
             
             params = model.init_params(key=key, data=data)
+            # print(params)
             # params = get_recovered_dict(jnp.array(pd.read_csv("params.csv").iloc[:,0].tolist())+0.5, shapes, sizes)
 
             params_mul = [params, init_mul]
@@ -318,6 +315,6 @@ for experiment in ['Augmented_Lag_experiment']:
         folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
         visual.error_graph(error_df, folder_path, experiment=experiment, activation=activation_name)
 
-pd.concat(error_df_list).to_csv(folder_path+".csv")
+pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 end_time = time.time()
 print(f"Execution Time: {end_time - start_time} seconds")

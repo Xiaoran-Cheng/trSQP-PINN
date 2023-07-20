@@ -39,7 +39,7 @@ class AugLag:
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
 
-    
+
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
     
@@ -49,7 +49,7 @@ class AugLag:
 
 
     def L(self, params, mul):
-        return self.l_k(params) - self.eq_cons(params) @ mul
+        return self.l_k(params) + self.eq_cons(params) @ mul
 
 
     def loss(self, params, mul, penalty_param):

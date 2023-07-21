@@ -51,20 +51,21 @@ class BertAugLag:
 
 
     def L(self, params_mul):
-        params, mul = params_mul
+        params = params_mul['params']
+        mul = params_mul['mul']
         return self.l_k(params) + self.eq_cons(params) @ mul
     
     
     def flat_single_dict(self, dicts):
         return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-                        applymap(lambda x: x.primal.flatten()).values.flatten())
+                        applymap(lambda x: x.flatten()).values.flatten())
 
 
     def loss(self, params_mul, penalty_param_mu, penalty_param_v):
-        params, mul = params_mul
-        opt_error_penalty = jnp.square(jnp.linalg.norm(self.flat_single_dict(jacfwd(self.L, 0)(params_mul)[0]),ord=2))
+        params = params_mul['params']
+        mul = params_mul['mul']
+        opt_error_penalty = jnp.square(jnp.linalg.norm(self.flat_single_dict(jacfwd(self.L, 0)(params_mul)['params']),ord=2))
         return self.L(params_mul) + 0.5 * penalty_param_mu * self.eq_cons_loss(params) + 0.5 * penalty_param_v * opt_error_penalty
 
 
     
-

@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import os
+from mpl_toolkits.axes_grid1 import make_axes_locatable
 
 class Visualization:
     def __init__(self, current_dir) -> None:
@@ -15,13 +16,50 @@ class Visualization:
         t = data[:,1]
         sol = sol.T.reshape(nt, xgrid)
         
-        plt.imshow(sol, interpolation='nearest', cmap='rainbow',
-                        extent=[t.min(), t.max(), x.min(), x.max()],
-                        origin='lower', aspect='auto')
-        plt.xlabel('t')
-        plt.ylabel('x')
+        # plt.imshow(sol, interpolation='nearest', cmap='rainbow',
+        #                 extent=[t.min(), t.max(), x.min(), x.max()],
+        #                 origin='lower', aspect='auto')
+        # plt.xlabel('t')
+        # plt.ylabel('x')
+        # title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
+        # plt.title(title_name)
+        # folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
+        #             format(types=types, current_dir=self.current_dir, beta=beta)
+        # self.check_path(folder_path)
+        # plt.savefig(os.path.join(folder_path, title_name+".jpg"))
+        # plt.show()
+        # plt.close()
+
+
+
+
+
+
+        fig = plt.figure(figsize=(9, 5))
+        ax = fig.add_subplot(111)
+
+        h = ax.imshow(sol, interpolation='nearest', cmap='rainbow',
+                    extent=[t.min(), t.max(), x.min(), x.max()],
+                    origin='lower', aspect='auto')
+        divider = make_axes_locatable(ax)
+        cax = divider.append_axes("right", size="5%", pad=0.10)
+        cbar = fig.colorbar(h, cax=cax)
+        cbar.ax.tick_params(labelsize=15)
+
+        ax.set_xlabel('t', fontweight='bold', size=20)
+        ax.set_ylabel('x', fontweight='bold', size=20)
+        ax.legend(
+            loc='upper center',
+            bbox_to_anchor=(0.9, -0.05),
+            ncol=5,
+            frameon=False,
+            prop={'size': 20}
+        )
+
+        # ax.tick_params(labelsize=15)
+
         title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
-        plt.title(title_name)
+        ax.set_title(title_name, fontsize = 15)
         folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
                     format(types=types, current_dir=self.current_dir, beta=beta)
         self.check_path(folder_path)

@@ -15,71 +15,56 @@ import jaxopt
 
 
 class Optim:
-    def __init__(self, model, Loss, panalty_param_upper_bound) -> None:
+    def __init__(self, model, Loss, panalty_param_upper_bound, LBFGS_linesearch, LBFGS_tol, LBFGS_maxiter) -> None:
         self.model = model
         self.Loss = Loss
         self.panalty_param_upper_bound = panalty_param_upper_bound
+        self.LBFGS_linesearch = LBFGS_linesearch
+        self.LBFGS_tol = LBFGS_tol
+        self.LBFGS_maxiter = LBFGS_maxiter
 
 
-    def flat_single_dict(self, dicts):
-        return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-                        applymap(lambda x: x.flatten()).values.flatten())
-
-
-    def update(self, opt, grads, optim_object):
+    def adam_update(self, opt, grads, optim_object):
         opt_state = opt.init(optim_object)
         grads, opt_state = opt.update(grads, opt_state)
         optim_object = optax.apply_updates(optim_object, grads)
         return optim_object
 
 
-    def LBFGS_update(self, params, maxiter, linesearch, penalty_param):
-        solver = jaxopt.LBFGS(fun=self.Loss.loss, maxiter=maxiter, \
-                              linesearch=linesearch, tol=1e-3, 
-                                stop_if_linesearch_fails=True)
-        params, _ = solver.run(params, penalty_param = penalty_param)
-        return params
-
-    def adam_update(self, params, num_echos, \
+    def update(self, params, num_echos, \
                     penalty_param, experiment, \
-                    mul, mul_num_echos, alpha, \
-                    lr_schedule, group_labels, \
-                    penalty_param_for_mul, \
+                    mul, alpha, group_labels, \
                     params_mul, \
                     penalty_param_mu, \
                     penalty_param_v):
 
         
-        opt = optax.adam(lr_schedule)
+        opt = optax.adam(0.001)
         loss_list = []
         eq_cons_loss_list = []
         l_k_loss_list = []
-        # if experiment == "Pillo_Penalty_experiment":
-        #     for step in tqdm(range(num_echos)):
-        #         for i in range(mul_num_echos):
-        #             mul_l, mul_grads = value_and_grad(self.Loss.get_mul_obj, 1)(params, mul, penalty_param_for_mul)
-        #             mul = self.update(opt=opt, grads=mul_grads, optim_object=mul)
-
-        #         l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
-        #         params = self.update(opt=opt, grads=grads, optim_object=params)
-        #         eq_cons_loss = self.Loss.eq_cons_loss(params)
-        #         l_k_loss = self.Loss.l_k(params)
-        #         loss_list.append(l)
-        #         eq_cons_loss_list.append(eq_cons_loss)
-        #         l_k_loss_list.append(l_k_loss)
-
-
+        solver = jaxopt.LBFGS(fun=self.Loss.loss, maxiter=self.LBFGS_maxiter, \
+                            linesearch=self.LBFGS_linesearch, tol=self.LBFGS_tol, 
+                                stop_if_linesearch_fails=True)
         if experiment == "Augmented_Lag_experiment":
-            for _ in tqdm(range(num_echos)):
-                l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
-                params = self.update(opt=opt, grads= grads, optim_object=params)
+            # solver = jaxopt.LBFGS(fun=self.Loss.loss, maxiter=self.LBFGS_maxiter, \
+            #                     linesearch=self.LBFGS_linesearch, tol=self.LBFGS_tol, 
+            #                         stop_if_linesearch_fails=True)
+            params, _ = solver.run(params, penalty_param = penalty_param, mul = mul)
 
-                eq_cons_loss = self.Loss.eq_cons_loss(params)
-                l_k_loss = self.Loss.l_k(params)
-                loss_list.append(l)
-                eq_cons_loss_list.append(eq_cons_loss)
-                l_k_loss_list.append(l_k_loss)
-                # print(jnp.linalg.norm(self.flat_single_dict(jacfwd(self.Loss.loss, 0)(params, mul, penalty_param)), ord=jnp.inf))
+            loss_list.append(self.Loss.loss(params, mul, penalty_param))
+            eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
+            l_k_loss_list.append(self.Loss.l_k(params))
+
+            # for _ in tqdm(range(num_echos)):
+            #     l, grads = value_and_grad(self.Loss.loss, 0)(params, mul, penalty_param)
+            #     params = self.update(opt=opt, grads= grads, optim_object=params)
+
+            #     eq_cons_loss = self.Loss.eq_cons_loss(params)
+            #     l_k_loss = self.Loss.l_k(params)
+            #     loss_list.append(l)
+            #     eq_cons_loss_list.append(eq_cons_loss)
+            #     l_k_loss_list.append(l_k_loss)
                 
                 
         elif experiment == "New_Augmented_Lag_experiment":
@@ -94,37 +79,18 @@ class Optim:
                 eq_cons_loss_list.append(eq_cons_loss)
                 l_k_loss_list.append(l_k_loss)
 
-        elif experiment == "Fletcher_Penalty_experiment":
-            for _ in tqdm(range(num_echos)):
-                l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param, group_labels)
-                params = self.update(opt=opt, grads= grads, optim_object=params)
 
-                eq_cons_loss = self.Loss.eq_cons_loss(params)
-                l_k_loss = self.Loss.l_k(params)
-                loss_list.append(l)
-                eq_cons_loss_list.append(eq_cons_loss)
-                l_k_loss_list.append(l_k_loss)
+        elif experiment == "Fletcher_Penalty_experiment":         
+            params, _ = solver.run(params, penalty_param = penalty_param, group_labels = group_labels)
 
-        elif experiment == "Bert_Aug_Lag_experiment":
-            for _ in tqdm(range(num_echos)):
-                l, grads = value_and_grad(self.Loss.loss, 0)(params_mul, penalty_param_mu, penalty_param_v)
-                params_mul = self.update(opt=opt, grads=grads, optim_object=params_mul)
-
-                params, mul = params_mul
-                eq_cons_loss = self.Loss.eq_cons_loss(params)
-                l_k_loss = self.Loss.l_k(params)
-                loss_list.append(l)
-                eq_cons_loss_list.append(eq_cons_loss)
-                l_k_loss_list.append(l_k_loss)
-
-        else:
-            params = self.LBFGS_update(params, num_echos, "hager-zhang", penalty_param)
-            loss_list.append(self.Loss.loss(params, penalty_param))
+            loss_list.append(self.Loss.loss(params, penalty_param, group_labels))
             eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
             l_k_loss_list.append(self.Loss.l_k(params))
+
+
             # for _ in tqdm(range(num_echos)):
-            #     l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
-            #     params = self.update(opt=opt, grads = grads, optim_object=params)
+            #     l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param, group_labels)
+            #     params = self.update(opt=opt, grads= grads, optim_object=params)
 
             #     eq_cons_loss = self.Loss.eq_cons_loss(params)
             #     l_k_loss = self.Loss.l_k(params)
@@ -132,15 +98,51 @@ class Optim:
             #     eq_cons_loss_list.append(eq_cons_loss)
             #     l_k_loss_list.append(l_k_loss)
 
-        # return params, params_mul, jnp.array(loss_list), lr_schedule(num_echos), eq_cons_loss_list, l_k_loss_list, self.Loss.eq_cons(params)
+        elif experiment == "Bert_Aug_Lag_experiment":
+            # solver = jaxopt.LBFGS(fun=self.Loss.loss, maxiter=self.LBFGS_maxiter, \
+            #                     linesearch=self.LBFGS_linesearch, tol=self.LBFGS_tol, 
+            #                         stop_if_linesearch_fails=True)
+
+            params_mul, _ = solver.run(params_mul, penalty_param_mu=penalty_param_mu, penalty_param_v=penalty_param_v)
+            params, mul = params_mul
+
+            loss_list.append(self.Loss.loss(params, penalty_param))
+            eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
+            l_k_loss_list.append(self.Loss.l_k(params))
+
+                # l, grads = value_and_grad(self.Loss.loss, 0)(params_mul, penalty_param_mu, penalty_param_v)
+                # params_mul = self.update(opt=opt, grads=grads, optim_object=params_mul)
+
+                # params, mul = params_mul
+                # eq_cons_loss = self.Loss.eq_cons_loss(params)
+                # l_k_loss = self.Loss.l_k(params)
+                # loss_list.append(l)
+                # eq_cons_loss_list.append(eq_cons_loss)
+                # l_k_loss_list.append(l_k_loss)
+
+        else:
+            for _ in range(100):
+                l, grads = value_and_grad(self.Loss.loss, 0)(params, penalty_param)
+                params = self.adam_update(opt=opt, grads=grads, optim_object=params)
+
+            solver = jaxopt.LBFGS(fun=self.Loss.loss, maxiter=self.LBFGS_maxiter, \
+                                linesearch=self.LBFGS_linesearch, tol=self.LBFGS_tol, 
+                                    stop_if_linesearch_fails=True)
+            params, _ = solver.run(params, penalty_param = penalty_param)
+
+            loss_list.append(self.Loss.loss(params, penalty_param))
+            eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
+            l_k_loss_list.append(self.Loss.l_k(params))
+
+        
+
         return params, params_mul, jnp.array(loss_list), jnp.array(eq_cons_loss_list), jnp.array(l_k_loss_list), self.Loss.eq_cons(params)
 
 
     def evaluation(self, params, data, ui):
-        n = data.shape[0]
         u_theta = self.model.u_theta(params=params, data=data)
-        absolute_error = 1/n * jnp.linalg.norm(u_theta-ui, ord = 2)
-        l2_relative_error = 1/n * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
+        absolute_error = jnp.mean(np.abs(u_theta-ui))
+        l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
     
 

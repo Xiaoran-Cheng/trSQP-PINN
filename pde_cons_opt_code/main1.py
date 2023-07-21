@@ -35,13 +35,11 @@ import optax
 import numpy as np
 import jaxlib.xla_extension as xla
 
-
 #######################################config for data#######################################
-# beta_list = [10**-4, 30]
-beta_list = [30]
+beta_list = [10]
 xgrid = 256
 nt = 100
-N=1000
+N=100
 M=100
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
@@ -64,34 +62,32 @@ t_sample_max = 1
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
 # features = [50, 50, 50, 50, 1]
-# features = [30, 30, 30, 30, 1]
-features = [50, 50, 1]
+features = [3, 3, 1]
 ####################################### config for NN #######################################
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 2
-init_penalty_param = 2
-panalty_param_upper_bound = 100
-uncons_optim_num_echos = 100
+penalty_param_update_factor = 1
+init_penalty_param = 1
+panalty_param_upper_bound = 10**6
+LBFGS_maxiter = 10
 # init_uncons_optim_learning_rate = 0.001
 # transition_steps = uncons_optim_num_echos
 # decay_rate = 0.9
 # end_value = 0.0001
 # transition_begin = 0
 # staircase = True
-max_iter_train = 5
+max_iter_train = 1
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
 LBFGS_linesearch = "hager-zhang"
-
+LBFGS_tol = 1e-10
 ####################################### config for penalty param #######################################
 
 
 ####################################### config for lagrange multiplier #######################################
 init_mul = jnp.ones(M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
-mul_num_echos = 10 # for Pillo_Penalty_experiment
 alpha = 10**6 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
 
@@ -111,7 +107,7 @@ visual = Visualization(current_dir)
 # line_search_max_iter = 100
 # line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
 # line_search_decrease_factor = 0.8
-maxiter = 100000
+maxiter = 1000
 group_labels = list(range(1,M+1)) * 2
 # qr_ind_tol = 1e-5
 # merit_func_penalty_param = 1
@@ -130,12 +126,9 @@ error_df_list = []
 #                     'SQP_experiment']:
 
 
-for experiment in ['SQP_experiment']:
-
-    # for activation_input in ['sin', \
-    #                         'tanh', \
-    #                         'cos']:
-    for activation_input in ['sin']:
+for experiment in ['PINN_experiment']:
+ 
+    for activation_input in ['tanh']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -153,13 +146,13 @@ for experiment in ['SQP_experiment']:
         absolute_error_list = []
         l2_relative_error_list = []
 
-        lr_schedule = optax.exponential_decay(
-        init_value=init_uncons_optim_learning_rate, 
-        transition_steps = transition_steps, 
-        decay_rate=decay_rate,
-        end_value = end_value,
-        transition_begin  = transition_begin,
-        staircase = staircase)
+        # lr_schedule = optax.exponential_decay(
+        # init_value=init_uncons_optim_learning_rate, 
+        # transition_steps = transition_steps, 
+        # decay_rate=decay_rate,
+        # end_value = end_value,
+        # transition_begin  = transition_begin,
+        # staircase = staircase)
         
         for beta in beta_list:
             data, sample_data, IC_sample_data, ui = dataloader.get_data(\
@@ -167,40 +160,18 @@ for experiment in ['SQP_experiment']:
                     x_sample_min, x_sample_max, t_sample_min, t_sample_max, \
                         beta, M, data_key_num, sample_data_key_num)
             
-
-            # def get_recovered_dict(flatted_target, shapes, sizes):
-            #     subarrays = np.split(flatted_target, np.cumsum(sizes)[:-1])
-            #     reshaped_arrays = [subarray.reshape(shape) for subarray, shape in zip(subarrays, shapes)]
-            #     flatted_target_df = pd.DataFrame(np.array(reshaped_arrays, dtype=object).\
-            #                 reshape(2,len(features))).applymap(lambda x: x)
-            #     flatted_target_df.columns = ['Dense_0', 'Dense_1', 'Dense_2']
-            #     flatted_target_df.index = ["bias", "kernel"]
-            #     flatted_target_df.sort_index(ascending=False, inplace=True)
-            #     recovered_target = FrozenDict({"params": flatted_target_df.to_dict()})
-            #     return recovered_target
-            
-            # sizes = [2, 3, 1, 4, 6, 3]
-            # shapes = [(2,), (3,), (1,), (2, 2), (2, 3), (3, 1)]
-            
             params = model.init_params(key=key, data=data)
-            # print(params)
-            # params = get_recovered_dict(jnp.array(pd.read_csv("params.csv").iloc[:,0].tolist())+0.5, shapes, sizes)
+            params_mul = {"params": params, "mul":init_mul}
 
-            params_mul = [params, init_mul]
             eval_data, eval_ui = dataloader.get_eval_data(xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, beta)
 
             penalty_param = init_penalty_param
             penalty_param_v = init_penalty_param_v
             penalty_param_mu = init_penalty_param_mu
-            uncons_optim_learning_rate = init_uncons_optim_learning_rate
+            # uncons_optim_learning_rate = init_uncons_optim_learning_rate
             mul = init_mul
             
             if experiment == "SQP_experiment":
-                # sqp_optim = SQP_Optim(model, qp, features, group_labels, hessian_param, M, params, beta, data, sample_data, IC_sample_data, ui, N, merit_func_penalty_param)
-                # params, total_l_k_loss_list, total_eq_cons_loss_list, kkt_residual_list = sqp_optim.SQP_optim(params, SQP_num_iter, \
-                #                             line_search_max_iter, line_search_condition, \
-                #                             line_search_decrease_factor, init_stepsize, \
-                #                             line_search_tol, qr_ind_tol, mul)
                 loss_values = []
                 eq_cons_loss_values = []
                 sqp_optim = SQP_Optim(model, features, M, params, beta, data, sample_data, IC_sample_data, ui, N)
@@ -241,25 +212,22 @@ for experiment in ['SQP_experiment']:
                                 N, M)
                     
                 
-                optim = Optim(model, loss, panalty_param_upper_bound)
+                optim = Optim(model, loss, panalty_param_upper_bound, LBFGS_linesearch, LBFGS_tol, LBFGS_maxiter)
                 total_loss_list = []
                 total_eq_cons_loss_list = []
                 total_l_k_loss_list = []
                 iter_retrain = 1
                 while iter_retrain <= max_iter_train:
-                    params, params_mul, loss_list, uncons_optim_learning_rate, \
+                    params, params_mul, loss_list, \
                     eq_cons_loss_list, l_k_loss_list, eq_cons = \
-                        optim.adam_update(params, \
-                                            uncons_optim_num_echos, \
+                        optim.update(params, LBFGS_maxiter, \
                                             penalty_param, experiment, \
-                                            mul, mul_num_echos, alpha, \
-                                            lr_schedule, group_labels, \
-                                            penalty_param_for_mul, \
+                                            mul, alpha, group_labels, \
                                             params_mul, \
                                             penalty_param_mu, \
                                             penalty_param_v)
                     iter_retrain+=1
-                    uncons_optim_learning_rate = lr_schedule(uncons_optim_num_echos * iter_retrain)
+                    # uncons_optim_learning_rate = lr_schedule(uncons_optim_num_echos * iter_retrain)
                     if experiment == "Augmented_Lag_experiment":
                         mul = mul + penalty_param * 2 * eq_cons
                     if penalty_param < panalty_param_upper_bound:
@@ -273,7 +241,7 @@ for experiment in ['SQP_experiment']:
                     total_eq_cons_loss_list.append(eq_cons_loss_list)
                     total_l_k_loss_list.append(l_k_loss_list)
                     if experiment != "Bert_Aug_Lag_experiment":
-                        print("penalty param: ", str(penalty_param), "leanring rate: ", str(uncons_optim_learning_rate))
+                        print("penalty param: ", str(penalty_param))
                     else:
                         print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 

@@ -131,10 +131,9 @@ class SQP_Optim:
 
 
     def evaluation(self, params, data, ui):
-        n = data.shape[0]
         u_theta = self.model.u_theta(params=params, data=data)
-        absolute_error = 1/n * jnp.linalg.norm(u_theta-ui, ord = 2)
-        l2_relative_error = 1/n * (jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2))
+        absolute_error = jnp.mean(np.abs(u_theta-ui))
+        l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
  
 

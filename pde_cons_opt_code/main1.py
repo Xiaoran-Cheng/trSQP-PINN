@@ -12,8 +12,8 @@ from optim_l1_penalty import l1Penalty
 from optim_l2_penalty import l2Penalty
 from optim_linfinity_penalty import linfinityPenalty
 from optim_aug_lag import AugLag
-from optim_pillo_penalty import PilloPenalty
-from optim_new_aug_lag import NewAugLag
+# from optim_pillo_penalty import PilloPenalty
+# from optim_new_aug_lag import NewAugLag
 from optim_fletcher_penalty import FletcherPenalty
 from optim_bert_aug_lag import BertAugLag
 from optim_sqp import SQP_Optim
@@ -36,11 +36,11 @@ import numpy as np
 import jaxlib.xla_extension as xla
 
 #######################################config for data#######################################
-beta_list = [10]
+beta_list = [0.0001, 30]
 xgrid = 256
 nt = 100
 N=100
-M=100
+M=15
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -61,28 +61,29 @@ t_sample_max = 1
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-features = [50, 50, 50, 50, 1]
-# features = [3, 3, 1]
+# features = [50, 50, 50, 50, 1]
+features = [3, 3, 1]
 ####################################### config for NN #######################################
 
 
 ####################################### config for penalty param #######################################
-penalty_param_update_factor = 1
+penalty_param_update_factor = 10
 init_penalty_param = 1
 panalty_param_upper_bound = 10**6
-LBFGS_maxiter = 10
+LBFGS_maxiter = 5000
 # init_uncons_optim_learning_rate = 0.001
 # transition_steps = uncons_optim_num_echos
 # decay_rate = 0.9
 # end_value = 0.0001
 # transition_begin = 0
 # staircase = True
-max_iter_train = 1
+max_iter_train = 10
 penalty_param_for_mul = 5
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
 LBFGS_linesearch = "hager-zhang"
 LBFGS_tol = 1e-10
+LBFGS_history_size = 20
 ####################################### config for penalty param #######################################
 
 
@@ -116,17 +117,16 @@ group_labels = list(range(1,M+1)) * 2
 
 error_df_list = []
 # for experiment in ['PINN_experiment', 
-#                     'l1_Penalty_experiment', 
 #                     'l2_Penalty_experiment', 
-#                     'linfinity_Penalty_experiment', 
 #                     'Augmented_Lag_experiment',  
-#                     'New_Augmented_Lag_experiment',
-#                     'Fletcher_Penalty_experiment', 
 #                     'Bert_Aug_Lag_experiment',
 #                     'SQP_experiment']:
 
 
-for experiment in ['PINN_experiment']:
+for experiment in ['PINN_experiment',
+                   'l2_Penalty_experiment',
+                   'Augmented_Lag_experiment',
+                   'SQP_experiment']:
  
     for activation_input in ['tanh']:
 
@@ -155,7 +155,7 @@ for experiment in ['PINN_experiment']:
         # staircase = staircase)
         
         for beta in beta_list:
-            data, sample_data, IC_sample_data, ui = dataloader.get_data(\
+            data, sample_data, IC_sample_data, BC_sample_data, ui = dataloader.get_data(\
                 xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, \
                     x_sample_min, x_sample_max, t_sample_min, t_sample_max, \
                         beta, M, data_key_num, sample_data_key_num)
@@ -174,7 +174,7 @@ for experiment in ['PINN_experiment']:
             if experiment == "SQP_experiment":
                 loss_values = []
                 eq_cons_loss_values = []
-                sqp_optim = SQP_Optim(model, features, M, params, beta, data, sample_data, IC_sample_data, ui, N)
+                sqp_optim = SQP_Optim(model, features, M, params, beta, data, sample_data, IC_sample_data, BC_sample_data, ui, N)
                 params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, maxiter)
                 total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
                 total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
@@ -184,35 +184,35 @@ for experiment in ['PINN_experiment']:
                 
             else:
                 if experiment == "PINN_experiment":
-                    loss = PINN(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = PINN(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                 elif experiment == "l1_Penalty_experiment":
-                    loss = l1Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = l1Penalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                 elif experiment == "l2_Penalty_experiment":
-                    loss = l2Penalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = l2Penalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                 elif experiment == "linfinity_Penalty_experiment":
-                    loss = linfinityPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = linfinityPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                 elif experiment == "Augmented_Lag_experiment":
-                    loss = AugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = AugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
-                elif experiment == "Pillo_Penalty_experiment":
-                    loss = PilloPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
-                elif experiment == "New_Augmented_Lag_experiment":
-                    loss = NewAugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
-                                N, M)
+                # elif experiment == "Pillo_Penalty_experiment":
+                #     loss = PilloPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
+                #                 N, M)
+                # elif experiment == "New_Augmented_Lag_experiment":
+                #     loss = NewAugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
+                #                 N, M)
                 elif experiment == "Fletcher_Penalty_experiment":
-                    loss = FletcherPenalty(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = FletcherPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                 elif experiment == "Bert_Aug_Lag_experiment":
-                    loss = BertAugLag(model, data, sample_data, IC_sample_data, ui[0], beta, \
+                    loss = BertAugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                     
                 
-                optim = Optim(model, loss, panalty_param_upper_bound, LBFGS_linesearch, LBFGS_tol, LBFGS_maxiter)
+                optim = Optim(model, loss, panalty_param_upper_bound, LBFGS_linesearch, LBFGS_tol, LBFGS_maxiter, LBFGS_history_size)
                 total_loss_list = []
                 total_eq_cons_loss_list = []
                 total_l_k_loss_list = []

@@ -18,7 +18,7 @@ import jax
 
 
 class SQP_Optim:
-    def __init__(self, model, feature, M, params, beta, data, sample_data, IC_sample_data, ui, N) -> None:
+    def __init__(self, model, feature, M, params, beta, data, sample_data, IC_sample_data, BC_sample_data, ui, N) -> None:
         self.model = model
         self.feature = feature
         self.M = M
@@ -27,6 +27,7 @@ class SQP_Optim:
         self.data = data
         self.sample_data = sample_data
         self.IC_sample_data = IC_sample_data
+        self.BC_sample_data = BC_sample_data
         self.ui = ui
         self.N = N
         shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
@@ -52,6 +53,13 @@ class SQP_Optim:
         return Transport_eq(beta=self.beta).solution(\
             self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
     
+
+    def BC_cons(self, param_list, treedef):
+        params = self.unflatten_params(param_list, treedef)
+        u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
+        return Transport_eq(beta=self.beta).solution(\
+            self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
+    
     
     def pde_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
@@ -61,7 +69,7 @@ class SQP_Optim:
 
     
     def eq_cons(self, param_list, treedef, eq_cons_loss_values):
-        eq_cons = jnp.concatenate([self.IC_cons(param_list, treedef), self.pde_cons(param_list, treedef)])
+        eq_cons = jnp.concatenate([self.IC_cons(param_list, treedef), self.BC_cons(param_list, treedef), self.pde_cons(param_list, treedef)])
         eq_cons_loss = jnp.square(jnp.linalg.norm(eq_cons, ord=2))
         eq_cons_loss_values.append(eq_cons_loss)
         return eq_cons

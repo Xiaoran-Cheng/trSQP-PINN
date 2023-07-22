@@ -14,12 +14,13 @@ from flax.core.frozen_dict import unfreeze
 
 
 class BertAugLag:
-    def __init__(self, model, data, sample_data, IC_sample_data, ui, beta, N, M):
+    def __init__(self, model, data, sample_data, IC_sample_data, BC_sample_data, ui, beta, N, M):
         self.model = model
         self.beta = beta
         self.data = data
         self.sample_data = sample_data
         self.IC_sample_data = IC_sample_data
+        self.BC_sample_data = BC_sample_data
         self.ui = ui
         self.N = N
         self.M = M
@@ -36,14 +37,20 @@ class BertAugLag:
             self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
     
     
+    def BC_cons(self, params):
+        u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
+        return Transport_eq(beta=self.beta).solution(\
+            self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
+    
+    
     def pde_cons(self, params):
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
-
     
+
     def eq_cons(self, params):
-        return jnp.concatenate([self.IC_cons(params), self.pde_cons(params)])
+        return jnp.concatenate([self.IC_cons(params), self.BC_cons(params), self.pde_cons(params)])
     
 
     def eq_cons_loss(self, params):
@@ -57,8 +64,8 @@ class BertAugLag:
     
     
     def flat_single_dict(self, dicts):
-        return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-                        applymap(lambda x: x.flatten()).values.flatten())
+        return jnp.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
+                        applymap(lambda x: x.flatten()).values.flatten().tolist())
 
 
     def loss(self, params_mul, penalty_param_mu, penalty_param_v):

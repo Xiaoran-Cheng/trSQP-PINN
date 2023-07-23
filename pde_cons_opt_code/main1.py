@@ -10,7 +10,7 @@ sys.path.append(parent_dir)
 from optim_PINN import PINN
 from optim_l1_penalty import l1Penalty
 from optim_l2_penalty import l2Penalty
-from optim_linfinity_penalty import linfinityPenalty
+# from optim_linfinity_penalty import linfinityPenalty
 from optim_aug_lag import AugLag
 # from optim_pillo_penalty import PilloPenalty
 # from optim_new_aug_lag import NewAugLag
@@ -30,17 +30,19 @@ from jax import numpy as jnp
 from flax import linen as nn
 # from jaxopt import EqualityConstrainedQP, CvxpyQP, OSQP
 import jax.numpy as jnp
-import optax
 # from flax.core.frozen_dict import FrozenDict, unfreeze
 import numpy as np
 import jaxlib.xla_extension as xla
+import jaxopt
+import optax
+from tqdm import tqdm
 
 #######################################config for data#######################################
-beta_list = [0.0001, 30]
+beta_list = [30]
 xgrid = 256
 nt = 100
-N=100
-M=15
+N=1000
+M=3000
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -61,8 +63,8 @@ t_sample_max = 1
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-# features = [50, 50, 50, 50, 1]
-features = [3, 3, 1]
+features = [50, 50, 50, 50, 1]
+# features = [10, 10, 10, 10, 1]
 ####################################### config for NN #######################################
 
 
@@ -70,7 +72,7 @@ features = [3, 3, 1]
 penalty_param_update_factor = 10
 init_penalty_param = 1
 panalty_param_upper_bound = 10**6
-LBFGS_maxiter = 5000
+LBFGS_maxiter = 10000
 # init_uncons_optim_learning_rate = 0.001
 # transition_steps = uncons_optim_num_echos
 # decay_rate = 0.9
@@ -83,13 +85,15 @@ init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
 LBFGS_linesearch = "hager-zhang"
 LBFGS_tol = 1e-10
-LBFGS_history_size = 20
+LBFGS_history_size = 50
+
+adam_lr, adam_iter = 0.001, 100
 ####################################### config for penalty param #######################################
 
 
 ####################################### config for lagrange multiplier #######################################
 init_mul = jnp.ones(M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
-alpha = 10**6 # for New_Augmented_Lag_experiment
+# alpha = 10**6 # for New_Augmented_Lag_experiment
 ####################################### config for lagrange multiplier #######################################
 
 
@@ -108,8 +112,8 @@ visual = Visualization(current_dir)
 # line_search_max_iter = 100
 # line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
 # line_search_decrease_factor = 0.8
-maxiter = 1000
-group_labels = list(range(1,M+1)) * 2
+maxiter = 100000
+# group_labels = list(range(1,M+1)) * 2
 # qr_ind_tol = 1e-5
 # merit_func_penalty_param = 1
 ####################################### config for SQP #######################################
@@ -117,17 +121,16 @@ group_labels = list(range(1,M+1)) * 2
 
 error_df_list = []
 # for experiment in ['PINN_experiment', 
+#                    'l1_Penalty_experiment',
 #                     'l2_Penalty_experiment', 
-#                     'Augmented_Lag_experiment',  
-#                     'Bert_Aug_Lag_experiment',
-#                     'SQP_experiment']:
+#                     'Augmented_Lag_experiment',
+#                     'SQP_experiment',
+#                     'Bert_Aug_Lag_experiment']:
 
 
-for experiment in ['PINN_experiment',
-                   'l2_Penalty_experiment',
-                   'Augmented_Lag_experiment',
-                   'SQP_experiment']:
- 
+for experiment in ['PINN_experiment']:
+
+
     for activation_input in ['tanh']:
 
         if activation_input == "sin":
@@ -168,7 +171,6 @@ for experiment in ['PINN_experiment',
             penalty_param = init_penalty_param
             penalty_param_v = init_penalty_param_v
             penalty_param_mu = init_penalty_param_mu
-            # uncons_optim_learning_rate = init_uncons_optim_learning_rate
             mul = init_mul
             
             if experiment == "SQP_experiment":
@@ -192,9 +194,9 @@ for experiment in ['PINN_experiment',
                 elif experiment == "l2_Penalty_experiment":
                     loss = l2Penalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
-                elif experiment == "linfinity_Penalty_experiment":
-                    loss = linfinityPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
-                                N, M)
+                # elif experiment == "linfinity_Penalty_experiment":
+                #     loss = linfinityPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
+                #                 N, M)
                 elif experiment == "Augmented_Lag_experiment":
                     loss = AugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
@@ -211,22 +213,24 @@ for experiment in ['PINN_experiment',
                     loss = BertAugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
                     
-                
-                optim = Optim(model, loss, panalty_param_upper_bound, LBFGS_linesearch, LBFGS_tol, LBFGS_maxiter, LBFGS_history_size)
+                adam_opt = optax.adam(adam_lr)
+                LBFGS_opt = jaxopt.LBFGS(fun=loss.loss, maxiter=LBFGS_maxiter, \
+                    linesearch=LBFGS_linesearch, tol=LBFGS_tol, 
+                        stop_if_linesearch_fails=True, history_size=LBFGS_history_size)
+                optim = Optim(model, loss)
                 total_loss_list = []
                 total_eq_cons_loss_list = []
                 total_l_k_loss_list = []
-                iter_retrain = 1
-                while iter_retrain <= max_iter_train:
+                # iter_retrain = 1
+                for _ in tqdm(range(max_iter_train)):
+                # while iter_retrain <= max_iter_train:
                     params, params_mul, loss_list, \
                     eq_cons_loss_list, l_k_loss_list, eq_cons = \
-                        optim.update(params, LBFGS_maxiter, \
-                                            penalty_param, experiment, \
-                                            mul, alpha, group_labels, \
-                                            params_mul, \
+                        optim.update(params, penalty_param, experiment, \
+                                            mul, params_mul, \
                                             penalty_param_mu, \
-                                            penalty_param_v)
-                    iter_retrain+=1
+                                            penalty_param_v, adam_iter, adam_opt, LBFGS_opt)
+                    # iter_retrain+=1
                     # uncons_optim_learning_rate = lr_schedule(uncons_optim_num_echos * iter_retrain)
                     if experiment == "Augmented_Lag_experiment":
                         mul = mul + penalty_param * 2 * eq_cons
@@ -240,10 +244,10 @@ for experiment in ['PINN_experiment',
                     total_loss_list.append(loss_list)
                     total_eq_cons_loss_list.append(eq_cons_loss_list)
                     total_l_k_loss_list.append(l_k_loss_list)
-                    if experiment != "Bert_Aug_Lag_experiment":
-                        print("penalty param: ", str(penalty_param))
-                    else:
-                        print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
+                    # if experiment != "Bert_Aug_Lag_experiment":
+                    #     print("penalty param: ", str(penalty_param))
+                    # else:
+                    #     print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
 
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, eval_data, eval_ui[0])

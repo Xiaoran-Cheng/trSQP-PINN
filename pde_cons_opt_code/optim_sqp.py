@@ -12,7 +12,7 @@ from tqdm import tqdm
 import numpy as np
 import pandas as pd
 # from flax.core.frozen_dict import FrozenDict, unfreeze
-from scipy.optimize import minimize
+from scipy.optimize import minimize, BFGS
 # import jaxlib.xla_extension as xla
 import jax
 
@@ -132,7 +132,8 @@ class SQP_Optim:
                             jac=self.grad_objective, \
                             method='trust-constr', \
                             options={'maxiter': maxiter}, \
-                            constraints=constraints)
+                            constraints=constraints, \
+                            hess = BFGS())
         params_opt = self.unflatten_params(solution.x, treedef)
         print(solution)
         return params_opt

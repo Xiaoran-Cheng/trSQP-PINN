@@ -6,11 +6,11 @@ sys.path.append(parent_dir)
 from Transport_eq import Transport_eq
 
 from jax import numpy as jnp
-from jax import jacfwd, vmap
+from jax import jacfwd
 import pandas as pd
 from flax.core.frozen_dict import unfreeze
-import numpy as np
-import jax
+
+
 
 class FletcherPenalty:
     def __init__(self, model, data, sample_data, IC_sample_data, BC_sample_data, ui, beta, N, M):

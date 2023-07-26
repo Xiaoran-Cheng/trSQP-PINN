@@ -23,7 +23,6 @@ class AugLag:
         self.M = M
 
 
-    
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
         return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
@@ -49,7 +48,7 @@ class AugLag:
 
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.BC_cons(params), self.pde_cons(params)])
-    
+
 
     def eq_cons_loss(self, params):
         return  jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))

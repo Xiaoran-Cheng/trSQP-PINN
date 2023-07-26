@@ -7,14 +7,10 @@ from Transport_eq import Transport_eq
 
 from jax import numpy as jnp
 from jax import jacfwd
-# from tqdm.notebook import tqdm
-from tqdm import tqdm
 import numpy as np
-import pandas as pd
-# from flax.core.frozen_dict import FrozenDict, unfreeze
-from scipy.optimize import minimize, BFGS
-# import jaxlib.xla_extension as xla
+from scipy.optimize import minimize
 import jax
+
 
 
 class SQP_Optim:
@@ -41,7 +37,7 @@ class SQP_Optim:
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         loss_values.append(obj_value)
         return obj_value
-    
+
 
     def grad_objective(self, param_list, treedef, loss_values):
         return jacfwd(self.obj, 0)(param_list, treedef, loss_values)
@@ -79,31 +75,10 @@ class SQP_Optim:
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
         return eq_cons_jac
 
-    # def get_li_in_eq_cons_index(self, param_list, treedef, eq_cons_loss_values):
-    #     eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
-    #     li_in_cons_index = self.get_li_in_cons_index(eq_cons_jac, 1e-5)
-    #     return li_in_cons_index
-
-
-    # def get_li_in_eq_cons(self, param_list, li_in_cons_index, treedef, eq_cons_loss_values):
-    #     li_in_cons_index = self.get_li_in_eq_cons_index(param_list, treedef, eq_cons_loss_values)
-    #     eq_cons = self.eq_cons(param_list, treedef, eq_cons_loss_values)
-    #     return eq_cons[li_in_cons_index]
-
-
-    # def get_li_in_eq_grads(self, param_list, li_in_cons_index, treedef, eq_cons_loss_values):
-    #     eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
-    #     li_in_cons_index = self.get_li_in_eq_cons_index(param_list, treedef, eq_cons_loss_values)
-    #     return eq_cons_jac[li_in_cons_index, :]
-
 
     def flatten_params(self, params):
-        flat_params_list, treedef = jax.tree_util.tree_flatten(params)
-        return np.concatenate([param.ravel( ) for param in flat_params_list], axis=0), treedef
-    
-    # def flat_single_dict(self, dicts):
-    #     return np.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-    #                     applymap(lambda x: x.flatten()).values.flatten())
+        _, treedef = jax.tree_util.tree_flatten(params)
+        return jax.flatten_util.ravel_pytree(params)[0], treedef
 
 
     def unflatten_params(self, param_list, treedef):
@@ -112,20 +87,14 @@ class SQP_Optim:
         return jax.tree_util.tree_unflatten(treedef, reshaped_params)
 
 
-    # def get_li_in_cons_index(self, mat, qr_ind_tol):
-    #     _, R = jnp.linalg.qr(mat)
-    #     independent = jnp.where(jnp.abs(R.diagonal()) > qr_ind_tol)[0]
-    #     return independent
-
-
-    def SQP_optim(self, params, loss_values, eq_cons_loss_values, maxiter):
+    def SQP_optim(self, params, loss_values, eq_cons_loss_values, maxiter, sqp_hessian):
         flat_params, treedef = self.flatten_params(params)
-        # li_in_cons_index = self.get_li_in_eq_cons_index(flat_params, treedef, eq_cons_loss_values)
         constraints = {
             'type': 'eq',
             'fun': self.eq_cons,
             'jac': self.grads_eq_cons,
             'args': (treedef, eq_cons_loss_values)}
+        
         solution = minimize(self.obj, \
                             flat_params, \
                             args=(treedef,loss_values), \
@@ -133,7 +102,8 @@ class SQP_Optim:
                             method='trust-constr', \
                             options={'maxiter': maxiter}, \
                             constraints=constraints, \
-                            hess = BFGS())
+                            hess = sqp_hessian)
+
         params_opt = self.unflatten_params(solution.x, treedef)
         print(solution)
         return params_opt

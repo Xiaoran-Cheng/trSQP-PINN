@@ -28,21 +28,18 @@ from jax import random
 import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
-# from jaxopt import EqualityConstrainedQP, CvxpyQP, OSQP
 import jax.numpy as jnp
-# from flax.core.frozen_dict import FrozenDict, unfreeze
-import numpy as np
 import jaxlib.xla_extension as xla
 import jaxopt
-import optax
 from tqdm import tqdm
+from scipy.optimize import BFGS
 
 #######################################config for data#######################################
 beta_list = [30]
 xgrid = 256
 nt = 100
 N=1000
-M=3000
+M=120
 data_key_num, sample_data_key_num = 100, 256
 eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
@@ -63,38 +60,30 @@ t_sample_max = 1
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-features = [50, 50, 50, 50, 1]
-# features = [10, 10, 10, 10, 1]
+features = [10, 10, 10, 10, 1]
+# features = [50, 50, 50, 50, 1]
 ####################################### config for NN #######################################
 
 
-####################################### config for penalty param #######################################
-penalty_param_update_factor = 10
+####################################### config for unconstrained optim #######################################
+penalty_param_update_factor = 5
 init_penalty_param = 1
-panalty_param_upper_bound = 10**6
-LBFGS_maxiter = 10000
-# init_uncons_optim_learning_rate = 0.001
-# transition_steps = uncons_optim_num_echos
-# decay_rate = 0.9
-# end_value = 0.0001
-# transition_begin = 0
-# staircase = True
-max_iter_train = 10
-penalty_param_for_mul = 5
+panalty_param_upper_bound = 10**4
 init_penalty_param_v = init_penalty_param
 init_penalty_param_mu = init_penalty_param
-LBFGS_linesearch = "hager-zhang"
-LBFGS_tol = 1e-10
-LBFGS_history_size = 50
 
-adam_lr, adam_iter = 0.001, 100
-####################################### config for penalty param #######################################
+LBFGS_maxiter = 10000
+max_iter_train = 20
 
+LBFGS_gtol = 1e-9
+LBFGS_ftol = 1e-9
 
-####################################### config for lagrange multiplier #######################################
-init_mul = jnp.ones(M) # initial  for Pillo_Penalty_experiment, Augmented_Lag_experiment, New_Augmented_Lag_experiment
-# alpha = 10**6 # for New_Augmented_Lag_experiment
-####################################### config for lagrange multiplier #######################################
+# LBFGS_linesearch = "hager-zhang"
+# LBFGS_tol = 1e-3
+# LBFGS_history_size = 20
+
+init_mul = jnp.ones(M)
+####################################### config for unconstrained optim #######################################
 
 
 ####################################### visualization #######################################
@@ -103,35 +92,23 @@ visual = Visualization(current_dir)
 
 
 ####################################### config for SQP #######################################
-# # qp = EqualityConstrainedQP(tol=0.001) # , refine_regularization=3, refine_maxiter=50
-# qp = CvxpyQP(solver='OSQP') # "OSQP", "ECOS", "SCS" , implicit_diff_solve=True
-# SQP_num_iter = 100
-# hessian_param = 0.6
-# init_stepsize = 1.0
-# line_search_tol = 0
-# line_search_max_iter = 100
-# line_search_condition = "armijo"  # armijo, goldstein, strong-wolfe or wolfe.
-# line_search_decrease_factor = 0.8
-maxiter = 100000
-# group_labels = list(range(1,M+1)) * 2
-# qr_ind_tol = 1e-5
-# merit_func_penalty_param = 1
+sqp_maxiter = 10000000
+sqp_hessian = BFGS()
 ####################################### config for SQP #######################################
 
 
 error_df_list = []
 # for experiment in ['PINN_experiment', 
-#                    'l1_Penalty_experiment',
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment',
 #                     'SQP_experiment',
 #                     'Bert_Aug_Lag_experiment']:
 
 
-for experiment in ['PINN_experiment']:
+for experiment in ['Bert_Aug_Lag_experiment']:
 
 
-    for activation_input in ['tanh']:
+    for activation_input in ['sin']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -149,14 +126,6 @@ for experiment in ['PINN_experiment']:
         absolute_error_list = []
         l2_relative_error_list = []
 
-        # lr_schedule = optax.exponential_decay(
-        # init_value=init_uncons_optim_learning_rate, 
-        # transition_steps = transition_steps, 
-        # decay_rate=decay_rate,
-        # end_value = end_value,
-        # transition_begin  = transition_begin,
-        # staircase = staircase)
-        
         for beta in beta_list:
             data, sample_data, IC_sample_data, BC_sample_data, ui = dataloader.get_data(\
                 xgrid, nt, x_data_min, x_data_max, t_data_min, t_data_max, \
@@ -177,7 +146,7 @@ for experiment in ['PINN_experiment']:
                 loss_values = []
                 eq_cons_loss_values = []
                 sqp_optim = SQP_Optim(model, features, M, params, beta, data, sample_data, IC_sample_data, BC_sample_data, ui, N)
-                params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, maxiter)
+                params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, sqp_maxiter, sqp_hessian)
                 total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
                 total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
 
@@ -212,26 +181,55 @@ for experiment in ['PINN_experiment']:
                 elif experiment == "Bert_Aug_Lag_experiment":
                     loss = BertAugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
-                    
-                adam_opt = optax.adam(adam_lr)
-                LBFGS_opt = jaxopt.LBFGS(fun=loss.loss, maxiter=LBFGS_maxiter, \
-                    linesearch=LBFGS_linesearch, tol=LBFGS_tol, 
-                        stop_if_linesearch_fails=True, history_size=LBFGS_history_size)
+
+                # LBFGS_opt = jaxopt.LBFGS(fun=loss.loss, \
+                #                          maxiter=LBFGS_maxiter, \
+                #                         linesearch=LBFGS_linesearch, \
+                #                         tol=LBFGS_tol,
+                #                         stop_if_linesearch_fails=True, \
+                #                         history_size=LBFGS_history_size, \
+                #                         value_and_grad=False, \
+                #                         has_aux=False, \
+                #                         jit=False)
+      
+                total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list = [], [], []
+                if experiment == "Augmented_Lag_experiment":
+                    def callback_func(params):
+                        total_loss_list.append(loss.loss(params, mul, penalty_param).item())
+                        total_l_k_loss_list.append(loss.l_k(params).item())
+                        total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+                elif experiment == "Bert_Aug_Lag_experiment":
+                    def callback_func(params_mul):
+                        params = params_mul['params']
+                        total_loss_list.append(loss.loss(params_mul, penalty_param_mu, penalty_param_v).item())
+                        total_l_k_loss_list.append(loss.l_k(params).item())
+                        total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+                else:
+                    def callback_func(params):
+                        total_loss_list.append(loss.loss(params, penalty_param).item())
+                        total_l_k_loss_list.append(loss.l_k(params).item())
+                        total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+
+                LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
+                                                 fun=loss.loss, \
+                                                maxiter=LBFGS_maxiter, \
+                                                options={'gtol': LBFGS_gtol, 'ftol': LBFGS_ftol}, \
+                                                callback=callback_func)
+                
+
                 optim = Optim(model, loss)
-                total_loss_list = []
-                total_eq_cons_loss_list = []
-                total_l_k_loss_list = []
-                # iter_retrain = 1
                 for _ in tqdm(range(max_iter_train)):
-                # while iter_retrain <= max_iter_train:
-                    params, params_mul, loss_list, \
-                    eq_cons_loss_list, l_k_loss_list, eq_cons = \
+                    # params, params_mul, loss_list, \
+                    # eq_cons_loss_list, l_k_loss_list, eq_cons = \
+                    #     optim.update(params, penalty_param, experiment, \
+                    #                         mul, params_mul, \
+                    #                         penalty_param_mu, \
+                    #                         penalty_param_v, LBFGS_opt)
+                    params, params_mul, eq_cons = \
                         optim.update(params, penalty_param, experiment, \
                                             mul, params_mul, \
                                             penalty_param_mu, \
-                                            penalty_param_v, adam_iter, adam_opt, LBFGS_opt)
-                    # iter_retrain+=1
-                    # uncons_optim_learning_rate = lr_schedule(uncons_optim_num_echos * iter_retrain)
+                                            penalty_param_v, LBFGS_opt)
                     if experiment == "Augmented_Lag_experiment":
                         mul = mul + penalty_param * 2 * eq_cons
                     if penalty_param < panalty_param_upper_bound:
@@ -241,19 +239,8 @@ for experiment in ['PINN_experiment']:
                     if experiment == "Bert_Aug_Lag_experiment" and penalty_param_v > 1/panalty_param_upper_bound:
                         penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
 
-                    total_loss_list.append(loss_list)
-                    total_eq_cons_loss_list.append(eq_cons_loss_list)
-                    total_l_k_loss_list.append(l_k_loss_list)
-                    # if experiment != "Bert_Aug_Lag_experiment":
-                    #     print("penalty param: ", str(penalty_param))
-                    # else:
-                    #     print("penalty_param_mu: ", str(penalty_param_mu), ", ", "penalty_param_v: ", str(penalty_param_v))
-
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, eval_data, eval_ui[0])
-                total_loss_list = jnp.concatenate(jnp.array(total_loss_list))
-                total_eq_cons_loss_list = jnp.concatenate(jnp.array(total_eq_cons_loss_list))
-                total_l_k_loss_list = jnp.concatenate(jnp.array(total_l_k_loss_list))
 
             if experiment != "SQP_experiment":
                 visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment, activation=activation_name, beta=beta)
@@ -290,3 +277,5 @@ for experiment in ['PINN_experiment']:
 pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 end_time = time.time()
 print(f"Execution Time: {end_time - start_time} seconds")
+
+

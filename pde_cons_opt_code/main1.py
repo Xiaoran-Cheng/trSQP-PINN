@@ -10,7 +10,7 @@ sys.path.append(parent_dir)
 from optim_PINN import PINN
 from optim_l1_penalty import l1Penalty
 from optim_l2_penalty import l2Penalty
-# from optim_linfinity_penalty import linfinityPenalty
+from optim_linfinity_penalty import linfinityPenalty
 from optim_aug_lag import AugLag
 # from optim_pillo_penalty import PilloPenalty
 # from optim_new_aug_lag import NewAugLag
@@ -39,9 +39,8 @@ beta_list = [30]
 xgrid = 256
 nt = 100
 N=1000
-M=120
+M=750
 data_key_num, sample_data_key_num = 100, 256
-eval_data_key_num, eval_sample_data_key_num = 300, 756
 dim = 2
 Datas = Data(N=N, M=M, dim=dim)
 dataloader = DataLoader(Data=Datas)
@@ -60,20 +59,20 @@ t_sample_max = 1
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-features = [10, 10, 10, 10, 1]
-# features = [50, 50, 50, 50, 1]
+features = [15, 15, 15, 15, 1]
 ####################################### config for NN #######################################
 
 
 ####################################### config for unconstrained optim #######################################
-penalty_param_update_factor = 5
-init_penalty_param = 1
-panalty_param_upper_bound = 10**4
-init_penalty_param_v = init_penalty_param
-init_penalty_param_mu = init_penalty_param
-
-LBFGS_maxiter = 10000
+LBFGS_maxiter = 50000
 max_iter_train = 20
+
+penalty_param_update_factor = 2
+init_penalty_param = 1
+panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
+
+init_penalty_param_mu = init_penalty_param
+init_penalty_param_v = init_penalty_param
 
 LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
@@ -105,10 +104,12 @@ error_df_list = []
 #                     'Bert_Aug_Lag_experiment']:
 
 
-for experiment in ['Bert_Aug_Lag_experiment']:
+for experiment in ['PINN_experiment', 
+                    'l2_Penalty_experiment', 
+                    'Augmented_Lag_experiment']:
 
 
-    for activation_input in ['sin']:
+    for activation_input in ['tanh']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -163,9 +164,9 @@ for experiment in ['Bert_Aug_Lag_experiment']:
                 elif experiment == "l2_Penalty_experiment":
                     loss = l2Penalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
-                # elif experiment == "linfinity_Penalty_experiment":
-                #     loss = linfinityPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
-                #                 N, M)
+                elif experiment == "linfinity_Penalty_experiment":
+                    loss = linfinityPenalty(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
+                                N, M)
                 elif experiment == "Augmented_Lag_experiment":
                     loss = AugLag(model, data, sample_data, IC_sample_data, BC_sample_data, ui[0], beta, \
                                 N, M)
@@ -191,7 +192,6 @@ for experiment in ['Bert_Aug_Lag_experiment']:
                 #                         value_and_grad=False, \
                 #                         has_aux=False, \
                 #                         jit=False)
-      
                 total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list = [], [], []
                 if experiment == "Augmented_Lag_experiment":
                     def callback_func(params):
@@ -211,11 +211,11 @@ for experiment in ['Bert_Aug_Lag_experiment']:
                         total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
 
                 LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
-                                                 fun=loss.loss, \
+                                                fun=loss.loss, \
                                                 maxiter=LBFGS_maxiter, \
                                                 options={'gtol': LBFGS_gtol, 'ftol': LBFGS_ftol}, \
                                                 callback=callback_func)
-                
+
 
                 optim = Optim(model, loss)
                 for _ in tqdm(range(max_iter_train)):
@@ -241,6 +241,9 @@ for experiment in ['Bert_Aug_Lag_experiment']:
 
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, eval_data, eval_ui[0])
+                
+            #     total_loss_list.append(loss_list)     #改
+            # total_loss_list = jnp.concatenate(total_loss_list) #改
 
             if experiment != "SQP_experiment":
                 visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment, activation=activation_name, beta=beta)
@@ -276,6 +279,6 @@ for experiment in ['Bert_Aug_Lag_experiment']:
 
 pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 end_time = time.time()
-print(f"Execution Time: {end_time - start_time} seconds")
+print(f"Execution Time: {(end_time - start_time)/60} minutes")
 
 

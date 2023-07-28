@@ -73,6 +73,7 @@ class SQP_Optim:
 
     def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values):
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
+        # print(jnp.linalg.cond(eq_cons_jac))
         return eq_cons_jac
 
 

@@ -1,4 +1,0 @@
-Beta,absolute_error,l2_relative_error,activation,experiment
-30.0,0.37871551513671875,0.7830438613891602,tanh,PINN_experiment
-30.0,0.3331078886985779,0.7122328877449036,tanh,l2_Penalty_experiment
-30.0,0.20556333661079407,0.9217108488082886,tanh,Augmented_Lag_experiment

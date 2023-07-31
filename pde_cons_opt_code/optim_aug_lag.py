@@ -44,7 +44,7 @@ class AugLag:
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
-    
+
 
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.BC_cons(params), self.pde_cons(params)])

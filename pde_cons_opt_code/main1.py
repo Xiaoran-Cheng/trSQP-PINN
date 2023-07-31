@@ -7,6 +7,9 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 current_dir = os.getcwd().replace("\\", "/")
 sys.path.append(parent_dir)
 
+# from jax.config import config
+# config.update("jax_enable_x64", True)
+
 from optim_PINN import PINN
 from optim_l1_penalty import l1Penalty
 from optim_l2_penalty import l2Penalty
@@ -39,7 +42,7 @@ beta_list = [30]
 xgrid = 256
 nt = 100
 N=1000
-M=750
+M=210
 data_key_num, sample_data_key_num = 100, 256
 dim = 2
 Datas = Data(N=N, M=M, dim=dim)
@@ -55,13 +58,13 @@ t_sample_min = 0
 t_sample_max = 1
 ####################################### config for data #######################################
 
-
 ####################################### config for NN #######################################
 NN_key_num = 345
 key = random.PRNGKey(NN_key_num)
-features = [15, 15, 15, 15, 1]
+# features = [50, 50, 50, 50, 1]
+# features = [10,10,10,10,1]
+features = [10,10,10,1]
 ####################################### config for NN #######################################
-
 
 ####################################### config for unconstrained optim #######################################
 LBFGS_maxiter = 50000
@@ -71,8 +74,8 @@ penalty_param_update_factor = 2
 init_penalty_param = 1
 panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
 
-init_penalty_param_mu = init_penalty_param
-init_penalty_param_v = init_penalty_param
+init_penalty_param_mu = 1000
+init_penalty_param_v = 0.001
 
 LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
@@ -81,7 +84,7 @@ LBFGS_ftol = 1e-9
 # LBFGS_tol = 1e-3
 # LBFGS_history_size = 20
 
-init_mul = jnp.ones(M)
+init_mul = jnp.zeros(M)
 ####################################### config for unconstrained optim #######################################
 
 
@@ -92,24 +95,21 @@ visual = Visualization(current_dir)
 
 ####################################### config for SQP #######################################
 sqp_maxiter = 10000000
-sqp_hessian = BFGS()
+sqp_hessian = None
+sqp_gtol = 1e-9
+sqp_xtol = 1e-9
 ####################################### config for SQP #######################################
 
 
 error_df_list = []
-# for experiment in ['PINN_experiment', 
-#                     'l2_Penalty_experiment', 
-#                     'Augmented_Lag_experiment',
-#                     'SQP_experiment',
-#                     'Bert_Aug_Lag_experiment']:
-
-
 for experiment in ['PINN_experiment', 
                     'l2_Penalty_experiment', 
-                    'Augmented_Lag_experiment']:
+                    'Augmented_Lag_experiment',
+                    'Bert_Aug_Lag_experiment',
+                    'SQP_experiment']:
 
 
-    for activation_input in ['tanh']:
+    for activation_input in ['sin']:
 
         if activation_input == "sin":
             activation = jnp.sin
@@ -147,7 +147,7 @@ for experiment in ['PINN_experiment',
                 loss_values = []
                 eq_cons_loss_values = []
                 sqp_optim = SQP_Optim(model, features, M, params, beta, data, sample_data, IC_sample_data, BC_sample_data, ui, N)
-                params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, sqp_maxiter, sqp_hessian)
+                params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol)
                 total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
                 total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
 
@@ -230,20 +230,26 @@ for experiment in ['PINN_experiment',
                                             mul, params_mul, \
                                             penalty_param_mu, \
                                             penalty_param_v, LBFGS_opt)
+                    # import jax
+                    # print(jnp.linalg.norm(jax.flatten_util.ravel_pytree(params)[0], ord=2))
+
                     if experiment == "Augmented_Lag_experiment":
                         mul = mul + penalty_param * 2 * eq_cons
-                    if penalty_param < panalty_param_upper_bound:
+                    if penalty_param <= panalty_param_upper_bound and experiment != "Bert_Aug_Lag_experiment":
                         penalty_param = penalty_param_update_factor * penalty_param
-                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_mu < panalty_param_upper_bound:
+                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
                         penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_v > 1/panalty_param_upper_bound:
+                    if experiment == "Bert_Aug_Lag_experiment" and penalty_param_v >= 1/panalty_param_upper_bound:
                         penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+
+                    # if experiment == "Bert_Aug_Lag_experiment":
+                    #     print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
+                    # else:
+                    #     print("penalty_param: ", str(penalty_param))
 
                 absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                                 params, eval_data, eval_ui[0])
                 
-            #     total_loss_list.append(loss_list)     #改
-            # total_loss_list = jnp.concatenate(total_loss_list) #改
 
             if experiment != "SQP_experiment":
                 visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment, activation=activation_name, beta=beta)
@@ -275,10 +281,11 @@ for experiment in ['PINN_experiment',
         error_df["experiment"] = experiment
         error_df_list.append(error_df)
         folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
-        visual.error_graph(error_df, folder_path, experiment=experiment, activation=activation_name)
+        # visual.error_graph(error_df, folder_path, experiment=experiment, activation=activation_name)
 
 pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 end_time = time.time()
 print(f"Execution Time: {(end_time - start_time)/60} minutes")
+
 
 

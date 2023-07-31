@@ -73,13 +73,14 @@ class SQP_Optim:
 
     def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values):
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
-        # print(jnp.linalg.cond(eq_cons_jac))
         return eq_cons_jac
 
 
     def flatten_params(self, params):
-        _, treedef = jax.tree_util.tree_flatten(params)
-        return jax.flatten_util.ravel_pytree(params)[0], treedef
+        # _, treedef = jax.tree_util.tree_flatten(params)
+        # return jax.flatten_util.ravel_pytree(params)[0], treedef
+        flat_params_list, treedef = jax.tree_util.tree_flatten(params)
+        return np.concatenate([param.ravel( ) for param in flat_params_list], axis=0), treedef
 
 
     def unflatten_params(self, param_list, treedef):
@@ -88,7 +89,7 @@ class SQP_Optim:
         return jax.tree_util.tree_unflatten(treedef, reshaped_params)
 
 
-    def SQP_optim(self, params, loss_values, eq_cons_loss_values, maxiter, sqp_hessian):
+    def SQP_optim(self, params, loss_values, eq_cons_loss_values, maxiter, sqp_hessian, sqp_gtol, sqp_xtol):
         flat_params, treedef = self.flatten_params(params)
         constraints = {
             'type': 'eq',
@@ -101,7 +102,7 @@ class SQP_Optim:
                             args=(treedef,loss_values), \
                             jac=self.grad_objective, \
                             method='trust-constr', \
-                            options={'maxiter': maxiter}, \
+                            options={'maxiter': maxiter, 'gtol': sqp_gtol, 'xtol': sqp_xtol}, \
                             constraints=constraints, \
                             hess = sqp_hessian)
 
@@ -116,6 +117,3 @@ class SQP_Optim:
         l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
  
-
-
-

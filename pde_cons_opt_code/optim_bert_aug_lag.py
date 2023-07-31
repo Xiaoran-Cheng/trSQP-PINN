@@ -8,6 +8,7 @@ from Transport_eq import Transport_eq
 from jax import numpy as jnp
 from jax import jacfwd
 import jax
+from jaxopt._src import tree_util
 
 
 class BertAugLag:
@@ -54,9 +55,9 @@ class BertAugLag:
         return jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
 
 
-    def L(self, params_mul):
-        params = params_mul['params']
-        mul = params_mul['mul']
+    def L(self, params, mul):
+        # params = params_mul['params']
+        # mul = params_mul['mul']
         return self.l_k(params) + self.eq_cons(params) @ mul
     
     
@@ -68,7 +69,9 @@ class BertAugLag:
 
     def loss(self, params_mul, penalty_param_mu, penalty_param_v):
         params = params_mul['params']
-        opt_error_penalty = jnp.square(jnp.linalg.norm(jax.flatten_util.ravel_pytree(jacfwd(self.L, 0)(params_mul)['params'])[0],ord=2))
-        return self.L(params_mul) + 0.5 * penalty_param_mu * self.eq_cons_loss(params) + 0.5 * penalty_param_v * opt_error_penalty
+        mul = params_mul['mul']
+        # opt_error_penalty = jnp.square(jnp.linalg.norm(jax.flatten_util.ravel_pytree(jacfwd(self.L, 0)(params, mul)['params'])[0],ord=2))
+        opt_error_penalty = jnp.square(tree_util.tree_l2_norm(jacfwd(self.L, 0)(params, mul)['params']))
+        return self.L(params, mul) + 0.5 * penalty_param_mu * self.eq_cons_loss(params) + 0.5 * penalty_param_v * opt_error_penalty
     
 

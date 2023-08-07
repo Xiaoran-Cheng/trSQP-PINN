@@ -10,7 +10,7 @@ from jax import jacfwd
 import numpy as np
 from scipy.optimize import minimize
 import jax
-
+from tqdm import tqdm
 
 
 class SQP_Optim:
@@ -53,6 +53,9 @@ class SQP_Optim:
     def BC_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
         u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
+        # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
+        # u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_0)
+        # return u_theta_2pi - u_theta_0
         return Transport_eq(beta=self.beta).solution(\
             self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
     
@@ -64,15 +67,27 @@ class SQP_Optim:
             jnp.diag(grad_x[:,:,1]))
 
     
-    def eq_cons(self, param_list, treedef, eq_cons_loss_values):
+    def eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):
         eq_cons = jnp.concatenate([self.IC_cons(param_list, treedef), self.BC_cons(param_list, treedef), self.pde_cons(param_list, treedef)])
         eq_cons_loss = jnp.square(jnp.linalg.norm(eq_cons, ord=2))
         eq_cons_loss_values.append(eq_cons_loss)
         return eq_cons
     
 
-    def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values):
-        eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
+    # def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values):
+    #     eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
+    #     # print("condition number: ", str(jnp.linalg.cond(eq_cons_jac)))
+    #     print((jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac).shape)
+    #     print(self.grad_objective(param_list, treedef, loss_values))
+    #     return eq_cons_jac
+
+
+    def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):
+        eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
+        print(jnp.linalg.cond(eq_cons_jac))
+        lambdas = (jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac) @ self.grad_objective(param_list, treedef, loss_values)
+        L = lambda param_list: self.obj(param_list, treedef, loss_values) - lambdas @ self.eq_cons(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
+        kkt_residual.append(jnp.linalg.norm(jacfwd(L, 0)(param_list), ord=jnp.inf))
         return eq_cons_jac
 
 
@@ -89,22 +104,30 @@ class SQP_Optim:
         return jax.tree_util.tree_unflatten(treedef, reshaped_params)
 
 
-    def SQP_optim(self, params, loss_values, eq_cons_loss_values, maxiter, sqp_hessian, sqp_gtol, sqp_xtol):
+    def SQP_optim(self, params, loss_values, eq_cons_loss_values, kkt_residual, maxiter, sqp_hessian, sqp_gtol, sqp_xtol):
         flat_params, treedef = self.flatten_params(params)
+
+
         constraints = {
             'type': 'eq',
             'fun': self.eq_cons,
             'jac': self.grads_eq_cons,
-            'args': (treedef, eq_cons_loss_values)}
+            'args': (treedef, eq_cons_loss_values, loss_values, kkt_residual)}
         
         solution = minimize(self.obj, \
                             flat_params, \
                             args=(treedef,loss_values), \
                             jac=self.grad_objective, \
                             method='trust-constr', \
-                            options={'maxiter': maxiter, 'gtol': sqp_gtol, 'xtol': sqp_xtol}, \
+                            options={'maxiter': maxiter, \
+                                    'gtol': sqp_gtol, \
+                                    'xtol': sqp_xtol, \
+                                    'initial_tr_radius': 1, \
+                                    'initial_constr_penalty': 2, \
+                                    'verbose': 3}, \
                             constraints=constraints, \
                             hess = sqp_hessian)
+
 
         params_opt = self.unflatten_params(solution.x, treedef)
         print(solution)
@@ -117,3 +140,5 @@ class SQP_Optim:
         l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
  
+
+

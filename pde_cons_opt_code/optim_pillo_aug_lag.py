@@ -11,7 +11,7 @@ import jax
 from jaxopt._src import tree_util
 
 
-class BertAugLag:
+class PilloAugLag:
     def __init__(self, model, data, sample_data, IC_sample_data, BC_sample_data, ui, beta, N, M):
         self.model = model
         self.beta = beta
@@ -37,6 +37,7 @@ class BertAugLag:
     
     def BC_cons(self, params):
         u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
+        # u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_0)
         return Transport_eq(beta=self.beta).solution(\
             self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
     

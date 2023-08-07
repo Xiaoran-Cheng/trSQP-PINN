@@ -25,6 +25,7 @@ class Data:
         X_star = X_star[data_index,:]
         xi = X_star[:,0].reshape(self.dim-1,self.N)
         ti = X_star[:,1].reshape(self.dim-1,self.N)
+        # ui = Transport_eq(beta=beta).solution(xi, ti) + random.uniform(key, shape=(1,self.N), minval=0, maxval=0.001)
         ui = Transport_eq(beta=beta).solution(xi, ti)
         return xi, ti, ui
     
@@ -38,4 +39,6 @@ class Data:
         tj = X_star[:,1].reshape(self.dim-1,self.M)
         return xj, tj
     
+
+
 

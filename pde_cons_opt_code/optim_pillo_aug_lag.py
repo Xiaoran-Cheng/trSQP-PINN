@@ -12,16 +12,16 @@ from jaxopt._src import tree_util
 
 
 class PilloAugLag:
-    def __init__(self, model, data, sample_data, IC_sample_data, BC_sample_data, ui, beta, N, M):
+    def __init__(self, model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, beta, N):
         self.model = model
         self.beta = beta
         self.data = data
-        self.sample_data = sample_data
+        self.pde_sample_data = pde_sample_data
         self.IC_sample_data = IC_sample_data
-        self.BC_sample_data = BC_sample_data
+        self.BC_sample_data_zero = BC_sample_data_zero
+        self.BC_sample_data_2pi = BC_sample_data_2pi
         self.ui = ui
         self.N = N
-        self.M = M
 
 
     def l_k(self, params):
@@ -36,14 +36,17 @@ class PilloAugLag:
     
     
     def BC_cons(self, params):
-        u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
-        # u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_0)
+        # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
+        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
         return Transport_eq(beta=self.beta).solution(\
-            self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
+            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
+        # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
+        #     self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
+        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
     
     
     def pde_cons(self, params):
-        grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
+        grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
     
@@ -57,21 +60,12 @@ class PilloAugLag:
 
 
     def L(self, params, mul):
-        # params = params_mul['params']
-        # mul = params_mul['mul']
         return self.l_k(params) + self.eq_cons(params) @ mul
-    
-    
-    # def flat_single_dict(self, dicts):
-    #     # return jnp.concatenate(pd.DataFrame.from_dict(unfreeze(dicts["params"])).\
-    #     #                 applymap(lambda x: x.flatten()).values.flatten().tolist())
-    #     return jax.flatten_util.ravel_pytree(dicts)[0]
 
 
     def loss(self, params_mul, penalty_param_mu, penalty_param_v):
         params = params_mul['params']
         mul = params_mul['mul']
-        # opt_error_penalty = jnp.square(jnp.linalg.norm(jax.flatten_util.ravel_pytree(jacfwd(self.L, 0)(params, mul)['params'])[0],ord=2))
         opt_error_penalty = jnp.square(tree_util.tree_l2_norm(jacfwd(self.L, 0)(params, mul)['params']))
         return self.L(params, mul) + 0.5 * penalty_param_mu * self.eq_cons_loss(params) + 0.5 * penalty_param_v * opt_error_penalty
     

@@ -14,16 +14,14 @@ from tqdm import tqdm
 
 
 class SQP_Optim:
-    def __init__(self, model, feature, M, params, beta, data, sample_data, IC_sample_data, BC_sample_data, ui, N) -> None:
+    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N) -> None:
         self.model = model
-        self.feature = feature
-        self.M = M
-        self.layer_names = params["params"].keys()
         self.beta = beta
         self.data = data
-        self.sample_data = sample_data
+        self.pde_sample_data = pde_sample_data
         self.IC_sample_data = IC_sample_data
-        self.BC_sample_data = BC_sample_data
+        self.BC_sample_data_zero = BC_sample_data_zero
+        self.BC_sample_data_2pi = BC_sample_data_2pi
         self.ui = ui
         self.N = N
         shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
@@ -52,17 +50,18 @@ class SQP_Optim:
 
     def BC_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
-        u_theta = self.model.u_theta(params=params, data=self.BC_sample_data)
         # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        # u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_0)
-        # return u_theta_2pi - u_theta_0
+        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
         return Transport_eq(beta=self.beta).solution(\
-            self.BC_sample_data[:,0], self.BC_sample_data[:,1]) - u_theta
+            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
+        # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
+            # self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
+            # self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
     
     
     def pde_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
-        grad_x = jacfwd(self.model.u_theta, 1)(params, self.sample_data)
+        grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
             jnp.diag(grad_x[:,:,1]))
 
@@ -104,10 +103,8 @@ class SQP_Optim:
         return jax.tree_util.tree_unflatten(treedef, reshaped_params)
 
 
-    def SQP_optim(self, params, loss_values, eq_cons_loss_values, kkt_residual, maxiter, sqp_hessian, sqp_gtol, sqp_xtol):
+    def SQP_optim(self, params, loss_values, eq_cons_loss_values, kkt_residual, maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius):
         flat_params, treedef = self.flatten_params(params)
-
-
         constraints = {
             'type': 'eq',
             'fun': self.eq_cons,
@@ -122,8 +119,8 @@ class SQP_Optim:
                             options={'maxiter': maxiter, \
                                     'gtol': sqp_gtol, \
                                     'xtol': sqp_xtol, \
-                                    'initial_tr_radius': 1, \
-                                    'initial_constr_penalty': 2, \
+                                    'initial_tr_radius': sqp_initial_tr_radius, \
+                                    'initial_constr_penalty': sqp_initial_constr_penalty, \
                                     'verbose': 3}, \
                             constraints=constraints, \
                             hess = sqp_hessian)

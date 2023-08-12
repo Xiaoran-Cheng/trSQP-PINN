@@ -27,7 +27,6 @@ from Visualization import Visualization
 from uncons_opt import Optim
 from pre_train import PreTrain
 
-from jax import random
 import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
@@ -41,13 +40,19 @@ import numpy as np
 import pandas as pd
 
 
+#######################################config for pre_train#######################################
+Pre_Train = True
+pretrain_maxiter = 5000000
+pretrain_gtol = 1e-9
+pretrain_ftol = 1e-9
+#######################################config for pre_train#######################################
+
 #######################################config for data#######################################
-Pre_Train = False
 beta = 30
 xgrid = 256
 nt = 100
 N=1000
-IC_M, pde_M, BC_M = 3,3,3
+IC_M, pde_M, BC_M = 70,70,70
 M = IC_M + pde_M + BC_M
 data_key_num, sample_key_num = 100,256
 x_min = 0
@@ -62,12 +67,12 @@ features = [50,50,50,50,1]
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = 50000
+LBFGS_maxiter = 500000
 max_iter_train = 10
 
-penalty_param_update_factor = 5
+penalty_param_update_factor = 2
 init_penalty_param = 1
-panalty_param_upper_bound = 5**10
+panalty_param_upper_bound = 2**10
 
 init_penalty_param_mu = 10**6
 init_penalty_param_v = 10**-5
@@ -76,10 +81,6 @@ LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
 
 init_mul = jnp.zeros(M)
-
-pretrain_maxiter = LBFGS_maxiter
-pretrain_gtol = LBFGS_gtol
-pretrain_ftol = LBFGS_ftol
 ####################################### config for unconstrained optim #######################################
 
 
@@ -89,7 +90,7 @@ visual = Visualization(current_dir)
 
 
 ####################################### config for SQP #######################################
-sqp_maxiter = 1000000000
+sqp_maxiter = 10
 sqp_hessian = SR1()
 sqp_gtol = 1e-8
 sqp_xtol = 1e-8
@@ -156,12 +157,11 @@ for experiment in ['PINN_experiment',
                     'SQP_experiment']:
 
     #############
-    params = pd.read_csv("params.csv")
-    params = params.values.flatten()
+    # params = model.init_params(NN_key_num=NN_key_num, data=data)
+    params = pd.read_csv("params_303030_L2.csv").values.flatten()
     params = unflatten_params(params, treedef)
-    params_mul = {"params": params, "mul":init_mul}
     #############
-
+    params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param
     penalty_param_v = init_penalty_param_v
     penalty_param_mu = init_penalty_param_mu
@@ -171,12 +171,14 @@ for experiment in ['PINN_experiment',
         loss_values = []
         eq_cons_loss_values = []
         kkt_residual = []
-        sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N)
-        # sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, ui, N)
+        sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui)
         params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
         total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
         total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
         kkt_residual_list = [i.item() for i in kkt_residual if isinstance(i, xla.ArrayImpl)]
+        absolute_error_iter = [i.item() for i in sqp_optim.absolute_error_iter if isinstance(i, xla.ArrayImpl)]
+        l2_relative_error_iter = [i.item() for i in sqp_optim.l2_relative_error_iter if isinstance(i, xla.ArrayImpl)]
+
         absolute_error, l2_relative_error, eval_u_theta = \
             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
@@ -209,23 +211,32 @@ for experiment in ['PINN_experiment',
             loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                         N)
         
-        total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list = [], [], []
+        total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter = [], [], [], [], []
         if experiment == "Augmented_Lag_experiment":
             def callback_func(params):
                 total_loss_list.append(loss.loss(params, mul, penalty_param).item())
                 total_l_k_loss_list.append(loss.l_k(params).item())
                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+                u_theta = model.u_theta(params=params, data=eval_data)
+                absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+                l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
         elif experiment == "Pillo_Aug_Lag_experiment":
             def callback_func(params_mul):
                 params = params_mul['params']
                 total_loss_list.append(loss.loss(params_mul, penalty_param_mu, penalty_param_v).item())
                 total_l_k_loss_list.append(loss.l_k(params).item())
                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+                u_theta = model.u_theta(params=params, data=eval_data)
+                absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+                l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
         else:
             def callback_func(params):
                 total_loss_list.append(loss.loss(params, penalty_param).item())
                 total_l_k_loss_list.append(loss.l_k(params).item())
                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+                u_theta = model.u_theta(params=params, data=eval_data)
+                absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+                l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
 
         LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
                         fun=loss.loss, \
@@ -247,8 +258,8 @@ for experiment in ['PINN_experiment',
                 penalty_param = penalty_param_update_factor * penalty_param
             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
                 penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-            # if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/panalty_param_upper_bound:
-            #     penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/panalty_param_upper_bound:
+                penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
             if experiment == "Pillo_Aug_Lag_experiment":
                 print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
             else:
@@ -274,6 +285,11 @@ for experiment in ['PINN_experiment',
     visual.line_graph(eval_u_theta, "u_theta_line", experiment=experiment, activation=activation_name, beta=beta)
     visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="", beta=beta, activation="", nt=nt, xgrid=xgrid)
     visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, activation=activation_name, beta=beta, nt=nt, xgrid=xgrid)
+
+    visual.line_graph(absolute_error_iter, "absolute_error", experiment=experiment, activation=activation_name, beta=beta)
+    visual.line_graph(l2_relative_error_iter, "l2_relative_error", experiment=experiment, activation=activation_name, beta=beta)
+
+
     absolute_error_list.append(absolute_error)
     l2_relative_error_list.append(l2_relative_error)
     if experiment != "SQP_experiment":

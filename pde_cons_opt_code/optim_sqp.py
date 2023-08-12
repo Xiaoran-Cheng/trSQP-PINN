@@ -10,11 +10,11 @@ from jax import jacfwd
 import numpy as np
 from scipy.optimize import minimize
 import jax
-from tqdm import tqdm
+
 
 
 class SQP_Optim:
-    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N) -> None:
+    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui) -> None:
         self.model = model
         self.beta = beta
         self.data = data
@@ -27,6 +27,10 @@ class SQP_Optim:
         shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
         self.shapes, self.sizes = zip(*shapes_and_sizes)
         self.indices = jnp.cumsum(jnp.array(self.sizes)[:-1])
+        self.eval_data = eval_data
+        self.eval_ui = eval_ui
+        self.absolute_error_iter = []
+        self.l2_relative_error_iter = []
 
 
     def obj(self, param_list, treedef, loss_values):
@@ -34,6 +38,9 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         loss_values.append(obj_value)
+        absolute_error, l2_relative_error, _ = self.evaluation(params, self.eval_data, self.eval_ui)
+        self.absolute_error_iter.append(absolute_error)
+        self.l2_relative_error_iter.append(l2_relative_error)
         return obj_value
 
 
@@ -51,9 +58,9 @@ class SQP_Optim:
     def BC_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
         # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
+        u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
         return Transport_eq(beta=self.beta).solution(\
-            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
+            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi
         # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
             # self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
             # self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
@@ -71,19 +78,11 @@ class SQP_Optim:
         eq_cons_loss = jnp.square(jnp.linalg.norm(eq_cons, ord=2))
         eq_cons_loss_values.append(eq_cons_loss)
         return eq_cons
-    
-
-    # def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values):
-    #     eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values)
-    #     # print("condition number: ", str(jnp.linalg.cond(eq_cons_jac)))
-    #     print((jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac).shape)
-    #     print(self.grad_objective(param_list, treedef, loss_values))
-    #     return eq_cons_jac
 
 
     def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
-        print(jnp.linalg.cond(eq_cons_jac))
+        print("condition number: ", str(jnp.linalg.cond(eq_cons_jac)))
         lambdas = (jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac) @ self.grad_objective(param_list, treedef, loss_values)
         L = lambda param_list: self.obj(param_list, treedef, loss_values) - lambdas @ self.eq_cons(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
         kkt_residual.append(jnp.linalg.norm(jacfwd(L, 0)(param_list), ord=jnp.inf))
@@ -133,7 +132,7 @@ class SQP_Optim:
 
     def evaluation(self, params, data, ui):
         u_theta = self.model.u_theta(params=params, data=data)
-        absolute_error = jnp.mean(np.abs(u_theta-ui))
+        absolute_error = jnp.mean(jnp.abs(u_theta-ui))
         l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
  

@@ -53,17 +53,18 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
         return Transport_eq(beta=self.beta).solution(\
             self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
-    
+
 
     def BC_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
-        # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
+        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_zero)
         u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        return Transport_eq(beta=self.beta).solution(\
-            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi
+        # return Transport_eq(beta=self.beta).solution(\
+        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi
         # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
-            # self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
-            # self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
+        #     self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
+        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
+        return u_theta_2pi - u_theta_0
     
     
     def pde_cons(self, param_list, treedef):

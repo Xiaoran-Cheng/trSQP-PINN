@@ -59,6 +59,7 @@ x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
+noise_level = 0.001
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
@@ -125,7 +126,7 @@ activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 absolute_error_list = []
 l2_relative_error_list = []
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta)
+Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level)
 data, ui = Datas.generate_data(data_key_num)
 pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
 eval_data, eval_ui = Datas.get_eval_data()

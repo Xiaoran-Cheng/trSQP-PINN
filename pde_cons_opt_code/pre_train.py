@@ -26,7 +26,7 @@ class PreTrain:
     def l_k(self, params):
         u_theta = self.model.u_theta(params=params, data=self.data)
         return 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
-    
+
 
     def IC_cons(self, params):
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
@@ -35,15 +35,16 @@ class PreTrain:
     
     
     def BC_cons(self, params):
-        # u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        return Transport_eq(beta=self.beta).solution(\
-            self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
+        u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
+        u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_zero)
+        # return Transport_eq(beta=self.beta).solution(\
+        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
         # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
         #     self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
         #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
+        return u_theta_2pi - u_theta_0
     
-    
+
     def pde_cons(self, params):
         grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
         return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\

@@ -6,12 +6,11 @@ import numpy as np
 
 
 class Data:
-    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta) -> None:
-    # def __init__(self, N, IC_M, pde_M, xgrid, nt, x_min, x_max, t_min, t_max, beta) -> None:
+    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level) -> None:
         self.N = N
         self.IC_M = IC_M
         self.pde_M = pde_M
-        self.BC_M = BC_M
+        self.BC_M = BC_M, 
         self.M = IC_M + pde_M + BC_M
         self.xgrid = xgrid
         self.nt = nt
@@ -20,6 +19,7 @@ class Data:
         self.t_min = t_min
         self.t_max = t_max
         self.beta = beta
+        self.noise_level = noise_level
 
 
     def data_grid(self):
@@ -27,9 +27,6 @@ class Data:
         t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
         X, T = np.meshgrid(x, t)
         X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-        # X_noBC, T_no_IC = np.meshgrid(x[1:], t[1:])
-        # X_star_noBC_noIC =  jnp.hstack((X_noBC.flatten()[:, None], T_no_IC.flatten()[:, None]))
-        # return X_star, X_star_noBC_noIC
         return X_star
 
 
@@ -38,8 +35,9 @@ class Data:
         X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False),:]
         xi = X_star[:,0].reshape(1,self.N)
         ti = X_star[:,1].reshape(1,self.N)
-        # ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), shape=(1,self.N), minval=0, maxval=0.001)
-        ui = Transport_eq(beta=self.beta).solution(xi, ti)
+        ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
+                                                shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
+        # ui = Transport_eq(beta=self.beta).solution(xi, ti)
         data = jnp.concatenate((xi.T, ti.T), axis=1)
         return data, ui
 
@@ -77,30 +75,3 @@ class Data:
         return X_star, ui
 
 
-
-beta_list = [30]
-xgrid = 256
-nt = 100
-N=1000
-IC_M = 3
-pde_M = 3
-BC_M = 3
-M = IC_M + pde_M + BC_M
-# M = IC_M + pde_M
-# data_key_num, pde_key_num, IC_key_num, BC_key_num = 100,256,256,256
-data_key_num, sample_key_num = 100,256
-x_min = 0
-x_max = 2*jnp.pi
-t_min = 0
-t_max = 1
-
-
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, 30)
-data, ui = Datas.generate_data(data_key_num)
-# pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(pde_key_num, IC_key_num, BC_key_num)
-pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
-
-
-pde_sample_data
-IC_sample_data
-BC_sample_data_2pi

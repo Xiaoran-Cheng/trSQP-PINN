@@ -13,14 +13,18 @@ import numpy as np
 
 
 class PreTrain:
-    def __init__(self, model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, pretrain_loss_list):
+    def __init__(self, model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui):
         self.model = model
         self.beta = beta
         self.pde_sample_data = pde_sample_data
         self.IC_sample_data = IC_sample_data
         self.BC_sample_data_zero = BC_sample_data_zero
         self.BC_sample_data_2pi = BC_sample_data_2pi
-        self.pretrain_loss_list = pretrain_loss_list
+        self.pretrain_loss_list = []
+        self.absolute_error_pretrain_list = []
+        self.l2_relative_error_pretrain_list = []
+        self.eval_data = eval_data
+        self.eval_ui = eval_ui
 
 
     def l_k(self, params):
@@ -65,6 +69,9 @@ class PreTrain:
 
     def callback_func(self, params):
         self.pretrain_loss_list.append(self.loss(params).item())
+        u_theta = self.model.u_theta(params=params, data=self.eval_data)
+        self.absolute_error_pretrain_list.append(jnp.mean(np.abs(u_theta-self.eval_ui)))
+        self.l2_relative_error_pretrain_list.append(jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2))
 
 
     def evaluation(self, params, data, ui):

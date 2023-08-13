@@ -41,7 +41,7 @@ import pandas as pd
 
 
 #######################################config for pre_train#######################################
-Pre_Train = True
+Pre_Train = False
 pretrain_maxiter = 5000000
 pretrain_gtol = 1e-9
 pretrain_ftol = 1e-9
@@ -68,8 +68,8 @@ features = [50,50,50,50,1]
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = 500000
-max_iter_train = 10
+LBFGS_maxiter = 5
+max_iter_train = 1
 
 penalty_param_update_factor = 2
 init_penalty_param = 1
@@ -132,7 +132,7 @@ pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas
 eval_data, eval_ui = Datas.get_eval_data()
 params = model.init_params(NN_key_num=NN_key_num, data=data)
 if Pre_Train:
-    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, [])
+    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0])
     params = pretrain.update(params, pretrain_maxiter, pretrain_gtol, pretrain_ftol)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
                                 params, eval_data, eval_ui[0])
@@ -141,6 +141,8 @@ if Pre_Train:
     print("pretrain_loss_list: " + str(pretrain.pretrain_loss_list[-1]))
     visual.line_graph(pretrain.pretrain_loss_list, "Pre_Train_Loss", experiment='Pre_Train', activation=activation_name, beta=beta)
     visual.line_graph(eval_u_theta, "u_theta_line", experiment="Pre-Train", activation=activation_name, beta=beta)
+    visual.line_graph(pretrain.absolute_error_pretrain_list, "absolute_error", experiment="Pre-Train", activation=activation_name, beta=beta)
+    visual.line_graph(pretrain.l2_relative_error_pretrain_list, "l2_relative_error", experiment="Pre-Train", activation=activation_name, beta=beta)
     visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment='Pre_Train', activation=activation_name, beta=beta, nt=nt, xgrid=xgrid)
     flat_params, treedef = flatten_params(params)
     pd.DataFrame(flat_params, columns=['params']).to_csv("params.csv", index=False)
@@ -151,16 +153,22 @@ indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
 
+# for experiment in ['PINN_experiment', 
+#                     'l2_Penalty_experiment', 
+#                     'Augmented_Lag_experiment',
+#                     'Pillo_Aug_Lag_experiment',
+#                     'SQP_experiment']:
+
 for experiment in ['PINN_experiment', 
                     'l2_Penalty_experiment', 
-                    'Augmented_Lag_experiment',
-                    'Pillo_Aug_Lag_experiment',
-                    'SQP_experiment']:
+                    'Augmented_Lag_experiment']:
+    
 
     #############
-    # params = model.init_params(NN_key_num=NN_key_num, data=data)
-    params = pd.read_csv("params_303030_L2.csv").values.flatten()
-    params = unflatten_params(params, treedef)
+    params = model.init_params(NN_key_num=NN_key_num, data=data)
+    print(jnp.linalg.norm(flatten_params(params)[0]))
+    # params = pd.read_csv("params_303030_L2.csv").values.flatten()
+    # params = unflatten_params(params, treedef)
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param

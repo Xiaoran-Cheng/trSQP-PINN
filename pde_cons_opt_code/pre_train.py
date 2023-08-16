@@ -59,12 +59,12 @@ class PreTrain:
         return jnp.concatenate([self.IC_cons(params), self.BC_cons(params), self.pde_cons(params)])
     
 
-    # def loss(self, params):
-    #     return jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
+    def loss(self, params):
+        return jnp.square(jnp.linalg.norm(self.eq_cons(params), ord=2))
     
 
-    def loss(self, params):
-        return jnp.linalg.norm(self.eq_cons(params), ord=2)
+    # def loss(self, params):
+    #     return jnp.linalg.norm(self.eq_cons(params), ord=2)
     
 
     def callback_func(self, params):

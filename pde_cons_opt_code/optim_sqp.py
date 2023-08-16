@@ -38,9 +38,9 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         loss_values.append(obj_value)
-        absolute_error, l2_relative_error, _ = self.evaluation(params, self.eval_data, self.eval_ui)
-        self.absolute_error_iter.append(absolute_error)
-        self.l2_relative_error_iter.append(l2_relative_error)
+        # absolute_error, l2_relative_error, _ = self.evaluation(params, self.eval_data, self.eval_ui)
+        # self.absolute_error_iter.append(absolute_error)
+        # self.l2_relative_error_iter.append(l2_relative_error)
         return obj_value
 
 
@@ -83,7 +83,9 @@ class SQP_Optim:
 
     def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
-        print("condition number: ", str(jnp.linalg.cond(eq_cons_jac)))
+        cond_num = jnp.linalg.cond(eq_cons_jac)
+        if cond_num < 100:
+          print("condition number: ", str(cond_num))
         lambdas = (jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac) @ self.grad_objective(param_list, treedef, loss_values)
         L = lambda param_list: self.obj(param_list, treedef, loss_values) - lambdas @ self.eq_cons(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
         kkt_residual.append(jnp.linalg.norm(jacfwd(L, 0)(param_list), ord=jnp.inf))
@@ -121,7 +123,7 @@ class SQP_Optim:
                                     'xtol': sqp_xtol, \
                                     'initial_tr_radius': sqp_initial_tr_radius, \
                                     'initial_constr_penalty': sqp_initial_constr_penalty, \
-                                    'verbose': 3}, \
+                                    'verbose': 0}, \
                             constraints=constraints, \
                             hess = sqp_hessian)
 

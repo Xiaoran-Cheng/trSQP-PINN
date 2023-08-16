@@ -73,21 +73,3 @@ class Data:
         ti = X_star[:,1].reshape(1,data_grid_len)
         ui = Transport_eq(beta=self.beta).solution(xi, ti)
         return X_star, ui
-
-
-beta = 30
-xgrid = 256
-nt = 100
-N=1000
-IC_M, pde_M, BC_M = 70,70,70
-M = IC_M + pde_M + BC_M
-data_key_num, sample_key_num = 100,256
-x_min = 0
-x_max = 2*jnp.pi
-t_min = 0
-t_max = 1
-noise_level = 0.001
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level)
-data, ui = Datas.generate_data(data_key_num)
-pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
-

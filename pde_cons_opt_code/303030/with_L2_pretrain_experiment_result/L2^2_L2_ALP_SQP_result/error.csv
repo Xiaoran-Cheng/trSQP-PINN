@@ -1,0 +1,5 @@
+experiment,absolute_error,l2_relative_error,activation,Beta
+SQP_experiment,0.025862498,0.053886328,tanh,30
+l2^2_Penalty_experiment,0.55767715,0.92213565,tanh,30
+l2_Penalty_experiment,0.614889,0.98268455,tanh,30
+Augmented_Lag_experiment,0.07565726,0.24112411,tanh,30

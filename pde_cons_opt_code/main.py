@@ -276,8 +276,8 @@ for experiment in experiment_list:
             print("Number of iterations:", str(len(total_loss_list)))
 
 
-            pd.DataFrame(flatten_params(params)[0], columns=['params']).\
-            to_csv("params.csv", index=False)                        #check
+            # pd.DataFrame(flatten_params(params)[0], columns=['params']).\
+            # to_csv("params.csv", index=False)                        #check
 
         absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                         params, eval_data, eval_ui[0])

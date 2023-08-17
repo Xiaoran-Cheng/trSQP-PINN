@@ -15,26 +15,6 @@ class Visualization:
         x = data[:,0]
         t = data[:,1]
         sol = sol.T.reshape(nt, xgrid)
-        
-        # plt.imshow(sol, interpolation='nearest', cmap='rainbow',
-        #                 extent=[t.min(), t.max(), x.min(), x.max()],
-        #                 origin='lower', aspect='auto')
-        # plt.xlabel('t')
-        # plt.ylabel('x')
-        # title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
-        # plt.title(title_name)
-        # folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
-        #             format(types=types, current_dir=self.current_dir, beta=beta)
-        # self.check_path(folder_path)
-        # plt.savefig(os.path.join(folder_path, title_name+".jpg"))
-        # plt.show()
-        # plt.close()
-
-
-
-
-
-
         fig = plt.figure(figsize=(9, 5))
         ax = fig.add_subplot(111)
 
@@ -55,8 +35,6 @@ class Visualization:
             frameon=False,
             prop={'size': 20}
         )
-
-        # ax.tick_params(labelsize=15)
 
         title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
         ax.set_title(title_name, fontsize = 15)

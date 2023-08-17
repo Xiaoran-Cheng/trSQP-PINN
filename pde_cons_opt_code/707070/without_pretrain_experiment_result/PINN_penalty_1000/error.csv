@@ -1,2 +1,0 @@
-absolute_error,l2_relative_error,activation,experiment,Beta
-0.8364487886428833,1.521204948425293,tanh,PINN_experiment,30

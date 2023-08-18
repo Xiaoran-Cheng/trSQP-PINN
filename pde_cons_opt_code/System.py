@@ -64,30 +64,30 @@ class Reaction_Diffusion:
             u = u.at[:,i+1].set(u_)
 
         u = u.T
-        # u = u.flatten()
+        u = u.flatten()
         return u
         
-from Visualization import Visualization
-import sys
-import os
-import numpy as np
-parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-current_dir = os.getcwd().replace("\\", "/")
-sys.path.append(parent_dir)
-visual = Visualization(current_dir)
+# from Visualization import Visualization
+# import sys
+# import os
+# import numpy as np
+# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# current_dir = os.getcwd().replace("\\", "/")
+# sys.path.append(parent_dir)
+# visual = Visualization(current_dir)
 
-x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
-x.shape
-t = jnp.linspace(0, 1, 100).reshape(-1, 1)
-X, T = np.meshgrid(x, t)
-X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+# x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
+# x.shape
+# t = jnp.linspace(0, 1, 100).reshape(-1, 1)
+# X, T = np.meshgrid(x, t)
+# X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
 
 
-xgrid = x.shape[0]
+# xgrid = x.shape[0]
 
-sol= Reaction_Diffusion(5,5).solution(x, t)
+# sol= Reaction_Diffusion(5,5).solution(x, t)
 
-sol.shape
+# sol.shape
 
 
 

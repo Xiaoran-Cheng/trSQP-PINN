@@ -26,38 +26,17 @@ class Optim:
                     mul, params_mul, \
                     penalty_param_mu, \
                     penalty_param_v, LBFGS_opt):
-
-        # loss_list = []
-        # eq_cons_loss_list = []
-        # l_k_loss_list = []        
+     
         if experiment == "Augmented_Lag_experiment":
             params, _ = LBFGS_opt.run(params, penalty_param = penalty_param, mul = mul)
-            # loss_list.append(self.Loss.loss(params, mul, penalty_param))
-            # eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
-            # l_k_loss_list.append(self.Loss.l_k(params))
-
-
-        # elif experiment == "Fletcher_Penalty_experiment":
-        #     params, _ = LBFGS_opt.run(params, penalty_param = penalty_param)
-        #     loss_list.append(self.Loss.loss(params, penalty_param))
-        #     eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
-        #     l_k_loss_list.append(self.Loss.l_k(params))
 
         elif experiment == "Pillo_Aug_Lag_experiment":
             params_mul, _ = LBFGS_opt.run(params_mul, penalty_param_mu=penalty_param_mu, penalty_param_v=penalty_param_v)
             params = params_mul['params']
             mul = params_mul['mul']
-            # loss_list.append(self.Loss.loss(params_mul, penalty_param_mu, penalty_param_v))
-            # eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
-            # l_k_loss_list.append(self.Loss.l_k(params))
-
         else:
             params, _ = LBFGS_opt.run(params, penalty_param = penalty_param)
-            # loss_list.append(self.Loss.loss(params, penalty_param))
-            # eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(self.Loss.eq_cons(params), ord=2)))
-            # l_k_loss_list.append(self.Loss.l_k(params))
 
-        # return params, params_mul, jnp.array(loss_list), jnp.array(eq_cons_loss_list), jnp.array(l_k_loss_list), self.Loss.eq_cons(params)
         return params, params_mul, self.Loss.eq_cons(params)
 
 

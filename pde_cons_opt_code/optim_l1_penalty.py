@@ -3,7 +3,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from Transport_eq import Transport_eq
+from System import Transport_eq
 
 from jax import numpy as jnp
 from jax import jacfwd

@@ -1,12 +1,13 @@
 import jax.numpy as jnp
-from Transport_eq import Transport_eq
 from jax import random
 import numpy as np
+
+from System import Transport_eq, Reaction_Diffusion
 
 
 
 class Data:
-    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level) -> None:
+    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system) -> None:
         self.N = N
         self.IC_M = IC_M
         self.pde_M = pde_M
@@ -20,6 +21,9 @@ class Data:
         self.t_max = t_max
         self.beta = beta
         self.noise_level = noise_level
+        self.system = system
+        self.nu = nu
+        self.rho = rho
 
 
     def data_grid(self):
@@ -35,21 +39,20 @@ class Data:
         X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False),:]
         xi = X_star[:,0].reshape(1,self.N)
         ti = X_star[:,1].reshape(1,self.N)
-        ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
-                                                shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
-        # ui = Transport_eq(beta=self.beta).solution(xi, ti)
+
+        if self.system == "convection":
+            ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
+            # ui = Transport_eq(beta=self.beta).solution(xi, ti)
+        elif self.system == "reaction_diffusion":
+
+
+
+            ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
+            # ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti)
         data = jnp.concatenate((xi.T, ti.T), axis=1)
         return data, ui
-
-
-    # def sample_data(self, pde_key_num, IC_key_num, BC_key_num):
-    #     X_star, X_star_noBC_noIC = self.data_grid()
-    #     pde_sample_data = X_star_noBC_noIC[random.choice(random.PRNGKey(pde_key_num), shape=(self.pde_M,), a=X_star_noBC_noIC.shape[0], replace=False),:]
-    #     IC_sample_data = X_star[X_star[:, 1] == 0][random.choice(random.PRNGKey(IC_key_num), shape=(self.IC_M,), a=self.xgrid, replace=False),:]
-    #     BC_sample_data_zero = X_star[X_star[:, 0] == 0][random.choice(random.PRNGKey(BC_key_num), shape=(self.BC_M,), a=self.nt, replace=False),:]
-    #     BC_sample_data_2pi = BC_sample_data_zero.copy()
-    #     BC_sample_data_2pi = BC_sample_data_2pi.at[:, 0].set(2 * jnp.pi)
-    #     return pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi
 
 
     def sample_data(self, key_num):
@@ -71,5 +74,53 @@ class Data:
         data_grid_len = self.xgrid*self.nt
         xi = X_star[:,0].reshape(1,data_grid_len)
         ti = X_star[:,1].reshape(1,data_grid_len)
-        ui = Transport_eq(beta=self.beta).solution(xi, ti)
+        if self.system == "convection":
+            ui = Transport_eq(self.beta).solution(xi, ti)
+        elif self.system == "reaction_diffusion":
+            xi = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+            ti = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
+            ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti)
         return X_star, ui
+
+
+
+
+
+# from Visualization import Visualization
+# import sys
+# import os
+# import numpy as np
+# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# current_dir = os.getcwd().replace("\\", "/")
+# sys.path.append(parent_dir)
+# visual = Visualization(current_dir)
+
+# # x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
+# # t = jnp.linspace(0, 1, 100).reshape(-1, 1)
+# # X, T = np.meshgrid(x, t)
+# # X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+
+
+# # xgrid = x.shape[0]
+
+# # sol= Reaction_Diffusion(5,5).solution(x, t)
+# N=256
+# IC_M=3
+# pde_M=3
+# BC_M=3
+# xgrid=256
+# nt=100 
+# x_min=0
+# x_max=2*jnp.pi
+# t_min=0
+# t_max=1
+# beta=30
+# noise_level=0.01
+# nu=5 
+# rho=5 
+# system='reaction_diffusion'
+# X_star, sol = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system).generate_data(256)
+
+
+# visual.heatmap(X_star, sol, "", "", "", 1, 100, 256)
+

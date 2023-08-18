@@ -43,12 +43,12 @@ import pandas as pd
 #######################################config for pre_train#######################################
 Pre_Train = False                                                         #check
 pretrain_maxiter = 5000000
-pretrain_gtol = 1e-9
-pretrain_ftol = 1e-9
+pretrain_gtol = 1e-5
+pretrain_ftol = 1e-5
 #######################################config for pre_train#######################################
 
 #######################################config for data#######################################
-beta = 30
+beta = 0.001
 xgrid = 256
 nt = 100
 N=1000
@@ -59,24 +59,26 @@ x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.01                                                       #check
+noise_level = 0.001                                                       #check
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
 NN_key_num = 345
-features = [50,50,50,50,1]
+# features = [50,50,50,50,1]
+# features = [40,40,40,40,1]                                                #check
+features = [3,3,1]
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = 500000
-max_iter_train = 11                                                       #check
+LBFGS_maxiter = 50
+max_iter_train = 1                                                       #check
 
 penalty_param_update_factor = 2
 init_penalty_param = 1                                                    #check
 panalty_param_upper_bound = 2**11
 
 init_penalty_param_mu = 1
-init_penalty_param_v = 10**-5
+init_penalty_param_v = 1
 
 LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
@@ -95,7 +97,7 @@ sqp_maxiter = 1000000
 sqp_hessian = SR1()
 sqp_gtol = 1e-8
 sqp_xtol = 1e-8
-sqp_initial_constr_penalty = 0.05
+sqp_initial_constr_penalty = 0.01
 sqp_initial_tr_radius = 1
 ####################################### config for SQP #######################################
 
@@ -130,6 +132,7 @@ Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, 
 data, ui = Datas.generate_data(data_key_num)
 pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
 eval_data, eval_ui = Datas.get_eval_data()
+color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
 if Pre_Train:
     pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0])
@@ -143,10 +146,10 @@ if Pre_Train:
     visual.line_graph(eval_u_theta, "u_theta_line", experiment="Pre-Train", activation=activation_name, beta=beta)
     # visual.line_graph(pretrain.absolute_error_pretrain_list, "absolute_error", experiment="Pre-Train", activation=activation_name, beta=beta)
     # visual.line_graph(pretrain.l2_relative_error_pretrain_list, "l2_relative_error", experiment="Pre-Train", activation=activation_name, beta=beta)
-    visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment='Pre_Train', activation=activation_name, beta=beta, nt=nt, xgrid=xgrid)
+    visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment='Pre_Train', activation=activation_name, beta=beta, nt=nt, xgrid=xgrid,color_bar_bounds=color_bar_bounds)
     flat_params, treedef = flatten_params(params)
     pd.DataFrame(flat_params, columns=['params']).\
-    to_csv("params_303030_L2.csv", index=False)                        #check
+    to_csv("params_505050_L2.csv", index=False)                        #check
 
 shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
 shapes, sizes = zip(*shapes_and_sizes)
@@ -154,20 +157,20 @@ indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
 
-experiment_list = ['Pillo_Aug_Lag_experiment']
+# experiment_list = ['SQP_experiment',
+#                     'Pillo_Aug_Lag_experiment',
+#                     'l2^2_Penalty_experiment', 
+#                     'l2_Penalty_experiment', 
+#                     'Augmented_Lag_experiment']
+
+experiment_list = ['l2^2_Penalty_experiment']
 
 for experiment in experiment_list:
 
-# for experiment in ['l2^2_Penalty_experiment', 
-#                     'l2_Penalty_experiment', 
-#                     'Augmented_Lag_experiment',
-#                     'Pillo_Aug_Lag_experiment',
-#                     'SQP_experiment']:
-
     #############
-    # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    params = pd.read_csv("params_303030_L2.csv").values.flatten()      #check
-    params = unflatten_params(params, treedef)                            #check
+    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+    # params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
+    # params = unflatten_params(params, treedef)                            #check
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param
@@ -266,8 +269,8 @@ for experiment in experiment_list:
                 penalty_param = penalty_param_update_factor * penalty_param
             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
                 penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-            # if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/panalty_param_upper_bound:
-            #     penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/panalty_param_upper_bound:
+                penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
             if experiment == "Pillo_Aug_Lag_experiment":
                 print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
             else:
@@ -275,18 +278,12 @@ for experiment in experiment_list:
 
             print("Number of iterations:", str(len(total_loss_list)))
 
-
-            # pd.DataFrame(flatten_params(params)[0], columns=['params']).\
-            # to_csv("params.csv", index=False)                        #check
-
         absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                         params, eval_data, eval_ui[0])
-    
-    # ###############
-    # flat_params, treedef = flatten_params(params)
-    # pd.DataFrame(flat_params, columns=['params']).to_csv("params.csv", index=False)
-    # ###############
 
+    pd.DataFrame(flatten_params(params)[0], columns=['params']).\
+    to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
+    
     if experiment != "SQP_experiment":
         visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment, activation=activation_name, beta=beta)
     visual.line_graph(total_eq_cons_loss_list, "Total_eq_cons_Loss", experiment=experiment, activation=activation_name, beta=beta)
@@ -295,8 +292,8 @@ for experiment in experiment_list:
         visual.line_graph(kkt_residual_list, "KKT_residual", experiment=experiment, activation=activation_name, beta=beta)
     visual.line_graph(eval_ui[0], "True_sol_line", experiment="", activation="", beta=beta)
     visual.line_graph(eval_u_theta, "u_theta_line", experiment=experiment, activation=activation_name, beta=beta)
-    visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="", beta=beta, activation="", nt=nt, xgrid=xgrid)
-    visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, activation=activation_name, beta=beta, nt=nt, xgrid=xgrid)
+    visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="", beta=beta, activation="", nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+    visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, activation=activation_name, beta=beta, nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
 
     # visual.line_graph(absolute_error_iter, "absolute_error", experiment=experiment, activation=activation_name, beta=beta)
     # visual.line_graph(l2_relative_error_iter, "l2_relative_error", experiment=experiment, activation=activation_name, beta=beta)
@@ -315,12 +312,8 @@ for experiment in experiment_list:
 error_df = pd.DataFrame({'experiment': experiment_list,'absolute_error': absolute_error_list, \
                         'l2_relative_error': l2_relative_error_list})
 error_df["activation"] = activation_name
-# error_df["experiment"] = experiment
 error_df['Beta'] = beta
-    # error_df_list.append(error_df)
 folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
-
-# pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 error_df.to_csv(folder_path+".csv", index=False)
 end_time = time.time()
 print(f"Execution Time: {(end_time - start_time)/60} minutes")

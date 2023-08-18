@@ -3,7 +3,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from Transport_eq import Transport_eq
+from System import Transport_eq
 
 from jax import numpy as jnp
 from jax import jacfwd
@@ -38,9 +38,6 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         loss_values.append(obj_value)
-        # absolute_error, l2_relative_error, _ = self.evaluation(params, self.eval_data, self.eval_ui)
-        # self.absolute_error_iter.append(absolute_error)
-        # self.l2_relative_error_iter.append(l2_relative_error)
         return obj_value
 
 
@@ -59,11 +56,6 @@ class SQP_Optim:
         params = self.unflatten_params(param_list, treedef)
         u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_zero)
         u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
-        # return Transport_eq(beta=self.beta).solution(\
-        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi
-        # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
-        #     self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
-        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
         return u_theta_2pi - u_theta_0
     
     

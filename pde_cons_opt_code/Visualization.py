@@ -11,16 +11,17 @@ class Visualization:
             os.makedirs(folder_path)
 
 
-    def heatmap(self, data, sol, types, experiment, activation, beta, nt, xgrid):
+    def heatmap(self, data, sol, types, experiment, activation, beta, nt, xgrid, color_bar_bounds):
+        color_bar_lower_bound, color_bar_upper_bound = color_bar_bounds
         x = data[:,0]
         t = data[:,1]
-        sol = sol.T.reshape(nt, xgrid)
+        sol = sol.reshape(nt, xgrid)
         fig = plt.figure(figsize=(9, 5))
         ax = fig.add_subplot(111)
 
-        h = ax.imshow(sol, interpolation='nearest', cmap='rainbow',
+        h = ax.imshow(sol.T, interpolation='nearest', cmap='rainbow',
                     extent=[t.min(), t.max(), x.min(), x.max()],
-                    origin='lower', aspect='auto')
+                    origin='lower', aspect='auto', vmin=color_bar_lower_bound, vmax=color_bar_upper_bound)
         divider = make_axes_locatable(ax)
         cax = divider.append_axes("right", size="5%", pad=0.10)
         cbar = fig.colorbar(h, cax=cax)
@@ -37,7 +38,7 @@ class Visualization:
         )
 
         title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
-        ax.set_title(title_name, fontsize = 15)
+        # ax.set_title(title_name, fontsize = 15)
         folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
                     format(types=types, current_dir=self.current_dir, beta=beta)
         self.check_path(folder_path)
@@ -50,7 +51,7 @@ class Visualization:
         plt.figure()
         plt.plot(ls)
         title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
-        plt.title(title_name)
+        # plt.title(title_name)
         folder_path = "{current_dir}/result/beta_{beta}/{types}/".format(types=types, current_dir=self.current_dir, beta=beta)
         self.check_path(folder_path)
         plt.savefig(os.path.join(folder_path, title_name+".jpg"))
@@ -66,7 +67,7 @@ class Visualization:
         df.plot(x = "Beta", y='absolute_error',  kind='line')
         plt.xlabel('Beta')
         plt.ylabel('absolute_error')
-        plt.title(title_name+' absolute_error over Beta')
+        # plt.title(title_name+' absolute_error over Beta')
         plt.savefig(os.path.join(folder_path, f"{experiment}"+"_absolute_error.jpg"))
         plt.show()
         plt.close() 
@@ -74,7 +75,8 @@ class Visualization:
         df.plot(x = "Beta", y='l2_relative_error',  kind='line')
         plt.xlabel('Beta')
         plt.ylabel('l2_relative_error')
-        plt.title(title_name+' l2_relative_error over Beta')
+        # plt.title(title_name+' l2_relative_error over Beta')
         plt.savefig(os.path.join(folder_path, f"{experiment}"+"_l2_relative_error.jpg"))
         plt.show()
         plt.close()
+

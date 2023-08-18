@@ -3,11 +3,10 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from Transport_eq import Transport_eq
+from System import Transport_eq
 
 from jax import numpy as jnp
 from jax import jacfwd
-import jax
 from jaxopt._src import tree_util
 
 
@@ -38,11 +37,6 @@ class PilloAugLag:
     def BC_cons(self, params):
         u_theta_2pi = self.model.u_theta(params=params, data=self.BC_sample_data_2pi)
         u_theta_0 = self.model.u_theta(params=params, data=self.BC_sample_data_zero)
-        # return Transport_eq(beta=self.beta).solution(\
-            # self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_0
-        # return jnp.concatenate([Transport_eq(beta=self.beta).solution(\
-        #     self.BC_sample_data_zero[:,0], self.BC_sample_data_zero[:,1]) - u_theta_0, Transport_eq(beta=self.beta).solution(\
-        #     self.BC_sample_data_2pi[:,0], self.BC_sample_data_2pi[:,1]) - u_theta_2pi])
         return u_theta_2pi - u_theta_0
     
     

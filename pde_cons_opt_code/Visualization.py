@@ -11,7 +11,7 @@ class Visualization:
             os.makedirs(folder_path)
 
 
-    def heatmap(self, data, sol, types, experiment, activation, beta, nt, xgrid, color_bar_bounds):
+    def heatmap(self, data, sol, types, experiment, activation, beta, nt, xgrid, color_bar_bounds, figure_type = "None"):
         color_bar_lower_bound, color_bar_upper_bound = color_bar_bounds
         x = data[:,0]
         t = data[:,1]
@@ -22,13 +22,15 @@ class Visualization:
         h = ax.imshow(sol.T, interpolation='nearest', cmap='rainbow',
                     extent=[t.min(), t.max(), x.min(), x.max()],
                     origin='lower', aspect='auto', vmin=color_bar_lower_bound, vmax=color_bar_upper_bound)
-        divider = make_axes_locatable(ax)
-        cax = divider.append_axes("right", size="5%", pad=0.10)
-        cbar = fig.colorbar(h, cax=cax)
-        cbar.ax.tick_params(labelsize=15)
+        if figure_type == "True_sol" or figure_type == "None":
+            divider = make_axes_locatable(ax)
+            cax = divider.append_axes("right", size="5%", pad=0.10)
+            cbar = fig.colorbar(h, cax=cax)
+            cbar.ax.tick_params(labelsize=15)
 
-        ax.set_xlabel('t', fontweight='bold', size=20)
-        ax.set_ylabel('x', fontweight='bold', size=20)
+        ax.set_xlabel('t', fontweight='bold', size=20, labelpad=1)
+        if "PINN" in figure_type or figure_type == "None":
+            ax.set_ylabel('x', fontweight='bold', size=20, labelpad=1)
         ax.legend(
             loc='upper center',
             bbox_to_anchor=(0.9, -0.05),
@@ -37,7 +39,10 @@ class Visualization:
             prop={'size': 20}
         )
 
-        title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
+        ax.tick_params(labelsize=15)
+
+        # title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
+        title_name = "{experiment}".format(types=types, experiment=experiment)
         # ax.set_title(title_name, fontsize = 15)
         folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
                     format(types=types, current_dir=self.current_dir, beta=beta)

@@ -35,22 +35,25 @@ class Data:
 
 
     def generate_data(self, key_num):
-        X_star = self.data_grid()
-        X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False),:]
-        xi = X_star[:,0].reshape(1,self.N)
-        ti = X_star[:,1].reshape(1,self.N)
-
         if self.system == "convection":
+            X_star = self.data_grid()
+            X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False),:]
+            xi = X_star[:,0].reshape(1,self.N)
+            ti = X_star[:,1].reshape(1,self.N)
             ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
             # ui = Transport_eq(beta=self.beta).solution(xi, ti)
         elif self.system == "reaction_diffusion":
-
-
-
-            ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
-                                                    shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
-            # ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti)
+            x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+            t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
+            X_star = self.data_grid()
+            index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
+            ui = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index] + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(self.N,), minval=-self.noise_level, maxval=self.noise_level)
+            ui = ui.reshape(1,self.N)
+            X_star = X_star[index,:]
+            xi = X_star[:,0].reshape(1,self.N)
+            ti = X_star[:,1].reshape(1,self.N)
         data = jnp.concatenate((xi.T, ti.T), axis=1)
         return data, ui
 
@@ -104,7 +107,7 @@ class Data:
 # # xgrid = x.shape[0]
 
 # # sol= Reaction_Diffusion(5,5).solution(x, t)
-# N=256
+# N=1000
 # IC_M=3
 # pde_M=3
 # BC_M=3
@@ -118,9 +121,9 @@ class Data:
 # noise_level=0.01
 # nu=5 
 # rho=5 
-# system='reaction_diffusion'
+# system='convection'
 # X_star, sol = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system).generate_data(256)
-
-
-# visual.heatmap(X_star, sol, "", "", "", 1, 100, 256)
+# print(X_star.shape)
+# print(sol.shape)
+# # visual.heatmap(X_star, sol, "", "", "", 1, 100, 256)
 

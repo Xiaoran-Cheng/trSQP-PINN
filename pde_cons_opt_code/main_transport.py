@@ -52,7 +52,7 @@ beta = 30
 xgrid = 256
 nt = 100
 N=1000
-IC_M, pde_M, BC_M = 3,3,3                                                #check
+IC_M, pde_M, BC_M = 3,3,3                                              #check
 M = IC_M + pde_M + BC_M
 data_key_num, sample_key_num = 100,256
 x_min = 0
@@ -66,11 +66,11 @@ system = "convection"
 
 ####################################### config for NN #######################################
 NN_key_num = 345
-features = [50,50,50,50,1]                                      
+features = [50,50,50,50,1]                                                #check
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = 1000000
+LBFGS_maxiter = 5000000
 max_iter_train = 11                                                       #check
 
 penalty_param_update_factor = 2
@@ -93,7 +93,7 @@ visual = Visualization(current_dir)
 
 
 ####################################### config for SQP #######################################
-sqp_maxiter = 1000000
+sqp_maxiter = 5000000
 sqp_hessian = SR1()
 sqp_gtol = 1e-8
 sqp_xtol = 1e-8
@@ -165,6 +165,7 @@ _, treedef = flatten_params(params)
 
 experiment_list = ['Pillo_Aug_Lag_experiment']
 
+
 for experiment in experiment_list:
 
     #############
@@ -194,7 +195,7 @@ for experiment in experiment_list:
             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
     else:
-        if experiment == "PINN_experiment_penalty_1":                           # check
+        if experiment == "l2^2_Penalty_experiment":                           # check
             loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                         N)
         # elif experiment == "l1_Penalty_experiment":
@@ -278,6 +279,9 @@ for experiment in experiment_list:
 
             print("Number of iterations:", str(len(total_loss_list)))
 
+            pd.DataFrame(flatten_params(params)[0], columns=['params']).\
+                to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
+
         absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                         params, eval_data, eval_ui[0])
 
@@ -292,7 +296,7 @@ for experiment in experiment_list:
         visual.line_graph(kkt_residual_list, "KKT_residual", experiment=experiment, activation=activation_name, beta=beta)
     visual.line_graph(eval_ui[0], "True_sol_line", experiment="", activation="", beta=beta)
     visual.line_graph(eval_u_theta, "u_theta_line", experiment=experiment, activation=activation_name, beta=beta)
-    visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="", beta=beta, activation="", nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+    visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="True_sol", beta=beta, activation="", nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
     visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, activation=activation_name, beta=beta, nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
 
     # visual.line_graph(absolute_error_iter, "absolute_error", experiment=experiment, activation=activation_name, beta=beta)

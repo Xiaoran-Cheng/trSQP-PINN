@@ -71,13 +71,14 @@ class Reaction_Diffusion:
 # import sys
 # import os
 # import numpy as np
+# import pandas as pd
+
 # parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 # current_dir = os.getcwd().replace("\\", "/")
 # sys.path.append(parent_dir)
 # visual = Visualization(current_dir)
 
 # x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
-# x.shape
 # t = jnp.linspace(0, 1, 100).reshape(-1, 1)
 # X, T = np.meshgrid(x, t)
 # X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
@@ -85,14 +86,22 @@ class Reaction_Diffusion:
 
 # xgrid = x.shape[0]
 
+# sol= Reaction_Diffusion(5,5).solution(X_star[300:302,0], t)
 # sol= Reaction_Diffusion(5,5).solution(x, t)
+# print(sol[300])
 
-# sol.shape
+# x = X_star[:,0].reshape(1,25600)
+# t = X_star[:,1].reshape(1,25600)
+# sol= Transport_eq(30).solution(x, t)
+# print(sol[:,300])
+
+# print(X_star[300,:])
+
+# print(np.sin(X_star[300,0] - 30*X_star[300,1]))
 
 
 
 
-# visual.heatmap(X_star, sol, "", "", "", 1, 100, xgrid)
 
 
 

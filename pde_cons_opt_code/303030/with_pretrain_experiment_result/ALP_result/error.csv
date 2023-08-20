@@ -1,0 +1,2 @@
+experiment,absolute_error,l2_relative_error,activation,Beta
+Pillo_Aug_Lag_experiment,0.6467589,1.047291,tanh,30

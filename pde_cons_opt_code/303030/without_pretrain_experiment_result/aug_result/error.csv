@@ -1,0 +1,2 @@
+experiment,absolute_error,l2_relative_error,activation,Beta
+Augmented_Lag_experiment,0.49250144,0.8632625,tanh,30

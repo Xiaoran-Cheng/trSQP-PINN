@@ -4,9 +4,10 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
 from System import Transport_eq
+from System import Reaction_Diffusion
 
 from jax import numpy as jnp
-from jax import jacfwd
+from jax import jacfwd, hessian
 import numpy as np
 from scipy.optimize import minimize
 import jax
@@ -14,7 +15,7 @@ import jax
 
 
 class SQP_Optim:
-    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui) -> None:
+    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system) -> None:
         self.model = model
         self.beta = beta
         self.data = data
@@ -31,6 +32,9 @@ class SQP_Optim:
         self.eval_ui = eval_ui
         self.absolute_error_iter = []
         self.l2_relative_error_iter = []
+        self.nu = nu
+        self.rho = rho
+        self.system = system
 
 
     def obj(self, param_list, treedef, loss_values):
@@ -48,8 +52,11 @@ class SQP_Optim:
     def IC_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
-        return Transport_eq(beta=self.beta).solution(\
-            self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
+        if self.system == "convection":
+            return Transport_eq(beta=self.beta).solution(\
+                self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
+        elif self.system == "reaction_diffusion":
+            return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
 
 
     def BC_cons(self, param_list, treedef):
@@ -61,9 +68,18 @@ class SQP_Optim:
     
     def pde_cons(self, param_list, treedef):
         params = self.unflatten_params(param_list, treedef)
-        grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
-        return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
-            jnp.diag(grad_x[:,:,1]))
+        if self.system == "convection":
+            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
+            return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
+                jnp.diag(grad_x[:,:,1]))
+        elif self.system == "reaction_diffusion":
+            u_theta = self.model.u_theta(params=params, data=self.pde_sample_data)
+            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
+            dudt = jnp.diag(grad_x[:,:,1])
+            grad_xx = hessian(self.model.u_theta, 1)(params, self.pde_sample_data)
+            du2dx2 = jnp.diag(jnp.diagonal(grad_xx[:, :, 0, :, 0], axis1=1, axis2=2))
+            return Reaction_Diffusion(self.nu, self.rho).pde(dudt, du2dx2, u_theta)
+    
 
     
     def eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):

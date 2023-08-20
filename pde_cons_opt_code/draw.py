@@ -116,7 +116,7 @@ for first, second, third, experiment in zip(first_level, second_level, third_lev
     params_path = os.path.join(current_dir, '303030', first, second, third)
     params = pd.read_csv(params_path).values.flatten()
     params = unflatten_params(params, treedef)
-    sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui)
+    sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system)
 
     absolute_error, l2_relative_error, eval_u_theta = \
         sqp_optim.evaluation(params, eval_data, eval_ui[0])

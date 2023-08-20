@@ -66,10 +66,11 @@ indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
 
-experiment_list = [ "ALM", 'L2', "L2^2", 'SQP', 'ALP', 'ALM', 'L2', 'L2^2', 'PINN_1', 'PINN_10','PINN_100', 'PINN_1000']
+experiment_list = ['Pre_Train' ,"ALM", 'L2', "L2^2", 'SQP', 'ALP', 'ALM', 'L2', 'L2^2', 'PINN_1', 'PINN_10','PINN_100', 'PINN_1000']
 
 
-first_level = [ 'with_pretrain_experiment_result',
+first_level = [ 'L2_pretrain_result',
+                'with_pretrain_experiment_result',
                 'with_pretrain_experiment_result',
                 'with_pretrain_experiment_result',
                 'with_pretrain_experiment_result',
@@ -82,7 +83,8 @@ first_level = [ 'with_pretrain_experiment_result',
                 'without_pretrain_experiment_result',
                 'without_pretrain_experiment_result']
 
-second_level = [ 'ALM_result',
+second_level = [ '', 
+                'ALM_result',
                  'L2^2_L2_result',
                  'L2^2_L2_result',
                  'SQP_result',
@@ -95,7 +97,8 @@ second_level = [ 'ALM_result',
                  'PINN_experiment_penalty_100',
                  'PINN_experiment_penalty_1000']
 
-third_level = [ 'params_Augmented_Lag_experiment.csv',
+third_level = [ 'params_303030_L2.csv',
+                'params_Augmented_Lag_experiment.csv',
                 'params_l2_Penalty_experiment.csv',
                 'params_l2^2_Penalty_experiment.csv',
                 'params_SQP_experiment.csv',

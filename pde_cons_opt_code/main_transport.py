@@ -49,10 +49,13 @@ pretrain_ftol = 1e-9
 
 #######################################config for data#######################################
 beta = 30
+nu = 3
+rho = 5
+
 xgrid = 256
 nt = 100
 N=1000
-IC_M, pde_M, BC_M = 3,3,3                                              #check
+IC_M, pde_M, BC_M = 30,30,30                                              #check
 M = IC_M + pde_M + BC_M
 data_key_num, sample_key_num = 100,256
 x_min = 0
@@ -60,21 +63,22 @@ x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
 noise_level = 0.01                                                       #check
-nu = rho = 5
-system = "convection"
+system = "reaction_diffusion"
+# system = 'convection'
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
 NN_key_num = 345
-features = [50,50,50,50,1]                                                #check
+# features = [50,50,50,50,1]                                                #check
+features = [5,5,1]
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = 5000000
-max_iter_train = 11                                                       #check
+LBFGS_maxiter = 500000
+max_iter_train = 1                                                       #check
 
 penalty_param_update_factor = 2
-init_penalty_param = 1                                                    #check
+init_penalty_param = 2/100                                                    #check
 panalty_param_upper_bound = 2**11
 
 init_penalty_param_mu = 1
@@ -159,19 +163,18 @@ _, treedef = flatten_params(params)
 
 # experiment_list = ['SQP_experiment',
 #                     'Pillo_Aug_Lag_experiment',
-#                     'l2^2_Penalty_experiment', 
+#                     'PINN_experiment', 
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment']
 
-experiment_list = ['Pillo_Aug_Lag_experiment']
-
+experiment_list = ['PINN_experiment']
 
 for experiment in experiment_list:
 
     #############
-    # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    params = pd.read_csv("params_303030_L2.csv").values.flatten()      #check
-    params = unflatten_params(params, treedef)                            #check
+    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+    # params = pd.read_csv("params_303030_L2.csv").values.flatten()      #check
+    # params = unflatten_params(params, treedef)                            #check
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param
@@ -183,7 +186,7 @@ for experiment in experiment_list:
         loss_values = []
         eq_cons_loss_values = []
         kkt_residual = []
-        sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui)
+        sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system)
         params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
         total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
         total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
@@ -195,21 +198,21 @@ for experiment in experiment_list:
             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
     else:
-        if experiment == "l2^2_Penalty_experiment":                           # check
+        if experiment == "PINN_experiment":                           # check
             loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N)
+                        N, nu, rho, system)
         # elif experiment == "l1_Penalty_experiment":
         #     loss = l1Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
         #                 N)
         elif experiment == "l2_Penalty_experiment":
             loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N)
+                        N, nu, rho, system)
         # elif experiment == "linfinity_Penalty_experiment":
         #     loss = linfinityPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
         #                 N)
         elif experiment == "Augmented_Lag_experiment":
             loss = AugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N)
+                        N, nu, rho, system)
         # elif experiment == "Pillo_Penalty_experiment":
         #     loss = PilloPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
         #                 N, M)
@@ -221,7 +224,7 @@ for experiment in experiment_list:
         #                 N)
         elif experiment == "Pillo_Aug_Lag_experiment":
             loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N)
+                        N, nu, rho, system)
         
         total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter = [], [], [], [], []
         if experiment == "Augmented_Lag_experiment":

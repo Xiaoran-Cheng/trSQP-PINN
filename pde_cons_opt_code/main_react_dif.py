@@ -49,9 +49,12 @@ pretrain_ftol = 1e-9
 
 #######################################config for data#######################################
 beta = 30
+nu = 1
+rho = 5
+
 xgrid = 256
 nt = 100
-N=1000
+N=100
 IC_M, pde_M, BC_M = 30,30,30                                              #check
 M = IC_M + pde_M + BC_M
 data_key_num, sample_key_num = 100,256
@@ -59,8 +62,7 @@ x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.01                                                       #check
-nu = rho = 5
+noise_level = 0                                                       #check
 system = "reaction_diffusion"
 # system = 'convection'
 ####################################### config for data #######################################
@@ -68,15 +70,15 @@ system = "reaction_diffusion"
 ####################################### config for NN #######################################
 NN_key_num = 345
 # features = [50,50,50,50,1]                                                #check
-features = [20,20,1]
+features = [5,5,1]
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
 LBFGS_maxiter = 500000
-max_iter_train = 11                                                       #check
+max_iter_train = 1                                                       #check
 
 penalty_param_update_factor = 2
-init_penalty_param = 1                                                    #check
+init_penalty_param = 2/100                                                    #check
 panalty_param_upper_bound = 2**11
 
 init_penalty_param_mu = 1
@@ -165,7 +167,7 @@ _, treedef = flatten_params(params)
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment']
 
-experiment_list = ['PINN_experiment', 'l2_Penalty_experiment', 'Augmented_Lag_experiment']
+experiment_list = ['PINN_experiment']
 
 for experiment in experiment_list:
 

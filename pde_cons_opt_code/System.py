@@ -67,42 +67,23 @@ class Reaction_Diffusion:
         u = u.flatten()
         return u
         
-# from Visualization import Visualization
-# import sys
-# import os
-# import numpy as np
-# import pandas as pd
-
-# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# current_dir = os.getcwd().replace("\\", "/")
-# sys.path.append(parent_dir)
-# visual = Visualization(current_dir)
-
-# x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
-# t = jnp.linspace(0, 1, 100).reshape(-1, 1)
-# X, T = np.meshgrid(x, t)
-# X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
 
 
-# xgrid = x.shape[0]
-
-# sol= Reaction_Diffusion(5,5).solution(X_star[300:302,0], t)
-# sol= Reaction_Diffusion(5,5).solution(x, t)
-# print(sol[300])
-
-# x = X_star[:,0].reshape(1,25600)
-# t = X_star[:,1].reshape(1,25600)
-# sol= Transport_eq(30).solution(x, t)
-# print(sol[:,300])
-
-# print(X_star[300,:])
-
-# print(np.sin(X_star[300,0] - 30*X_star[300,1]))
+class Reaction:
+    def __init__(self, rho) -> None:
+        self.rho = rho
 
 
+    def pde(self, dudt, u_theta):
+        return dudt  - self.rho * u_theta * (1 - u_theta)
+    
+
+    def u0(self, x):
+        return jnp.exp(-jnp.power((x - jnp.pi)/(jnp.pi/4), 2.)/2.)
 
 
-
-
-
-
+    def solution(self, u0, t):
+        factor_1 = u0 * jnp.exp(self.rho * t)
+        factor_2 = (1 - u0)
+        return factor_1 / (factor_2 + factor_1)
+    

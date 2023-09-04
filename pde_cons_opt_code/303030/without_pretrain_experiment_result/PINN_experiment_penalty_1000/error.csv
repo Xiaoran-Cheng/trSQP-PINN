@@ -1,2 +1,0 @@
-experiment,absolute_error,l2_relative_error,activation,Beta
-PINN_experiment_penalty_1000,0.7834199,1.4157773,tanh,30

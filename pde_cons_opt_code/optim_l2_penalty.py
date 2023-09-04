@@ -2,9 +2,7 @@ import sys
 import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
-
-from System import Transport_eq
-from System import Reaction_Diffusion
+from System import Transport_eq, Reaction_Diffusion, Reaction
 
 from jax import numpy as jnp
 from jax import jacfwd, hessian
@@ -39,6 +37,8 @@ class l2Penalty:
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
             return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
+        elif self.system == "reaction":
+            return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta
     
     
     def BC_cons(self, params):
@@ -59,6 +59,11 @@ class l2Penalty:
             grad_xx = hessian(self.model.u_theta, 1)(params, self.pde_sample_data)
             du2dx2 = jnp.diag(jnp.diagonal(grad_xx[:, :, 0, :, 0], axis1=1, axis2=2))
             return Reaction_Diffusion(self.nu, self.rho).pde(dudt, du2dx2, u_theta)
+        elif self.system == "reaction":
+            u_theta = self.model.u_theta(params=params, data=self.pde_sample_data)
+            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
+            dudt = jnp.diag(grad_x[:,:,1])
+            return Reaction(self.rho).pde(dudt, u_theta)
     
     
     def eq_cons(self, params):

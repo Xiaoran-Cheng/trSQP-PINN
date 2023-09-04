@@ -3,8 +3,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from System import Transport_eq
-from System import Reaction_Diffusion
+from System import Transport_eq, Reaction_Diffusion, Reaction
 
 from jax import numpy as jnp
 from jax import jacfwd, hessian
@@ -39,6 +38,8 @@ class PINN:
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
             return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
+        elif self.system == "reaction":
+            return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta
     
     
     def BC_cons(self, params):
@@ -59,6 +60,11 @@ class PINN:
             grad_xx = hessian(self.model.u_theta, 1)(params, self.pde_sample_data)
             du2dx2 = jnp.diag(jnp.diagonal(grad_xx[:, :, 0, :, 0], axis1=1, axis2=2))
             return Reaction_Diffusion(self.nu, self.rho).pde(dudt, du2dx2, u_theta)
+        elif self.system == "reaction":
+            u_theta = self.model.u_theta(params=params, data=self.pde_sample_data)
+            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
+            dudt = jnp.diag(grad_x[:,:,1])
+            return Reaction(self.rho).pde(dudt, u_theta)
     
 
     def eq_cons(self, params):
@@ -73,40 +79,4 @@ class PINN:
         return self.l_k(params=params) + 0.5 * penalty_param * self.eq_cons_loss(params)
 
 
-
-
-# beta = 30
-# xgrid = 256
-# nt = 100
-# N=1000
-# IC_M, pde_M, BC_M = 3,3,3                                              #check
-# M = IC_M + pde_M + BC_M
-# data_key_num, sample_key_num = 100,256
-# x_min = 0
-# x_max = 2*jnp.pi
-# t_min = 0
-# t_max = 1
-# noise_level = 0.01                                                       #check
-# nu = rho = 5
-# system = "reaction_diffusion"
-
-# NN_key_num = 345
-# features = [2,3,1]                                                #check
-
-# from Data import Data
-# from NN import NN
-# activation = jnp.tanh
-# activation_name = activation.__name__
-# model = NN(features=features, activation=activation)
-# absolute_error_list = []
-# l2_relative_error_list = []
-# Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system)
-# data, ui = Datas.generate_data(data_key_num)
-# pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
-# params = model.init_params(NN_key_num=NN_key_num, data=data)
-# pinn = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, beta, N, nu, rho, system)
-
-
-
-# pinn.pde_cons(params)
 

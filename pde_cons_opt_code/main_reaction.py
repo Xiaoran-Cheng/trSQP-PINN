@@ -40,7 +40,7 @@ import numpy as np
 import pandas as pd
 
 
-#######################################config for pre_train#######################################
+#######################################config for pre_train######################################
 Pre_Train = False                                                         #check
 pretrain_maxiter = 5000000
 pretrain_gtol = 1e-9
@@ -50,12 +50,12 @@ pretrain_ftol = 1e-9
 #######################################config for data#######################################
 beta = 30
 nu = 20
-rho = 20
+rho = 30
 
 xgrid = 256
 nt = 100
 N=100
-IC_M, pde_M, BC_M = 30,30,30                                              #check
+IC_M, pde_M, BC_M = 1,3,3                                    #check
 M = IC_M + pde_M + BC_M
 # data_key_num, sample_key_num = 100,256
 data_key_num, sample_key_num = 23312,952
@@ -64,7 +64,7 @@ x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
 noise_level = 0.01                                                       #check
-system = "reaction_diffusion"                                            #check
+system = "reaction"                                            #check
 # system = 'convection'
 ####################################### config for data #######################################
 
@@ -72,24 +72,25 @@ system = "reaction_diffusion"                                            #check
 # NN_key_num = 345
 NN_key_num = 7654
 features = [50,50,50,50,1]                                                #check
+# features = [3,3,1]                                                #check
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
 LBFGS_maxiter = 500000
-max_iter_train = 1                                                       #check
+max_iter_train = 11                                                       #check
 
 penalty_param_update_factor = 2
 init_penalty_param = 1                                                    #check
 panalty_param_upper_bound = 2**11
 
-init_penalty_param_mu = 10**6
-init_penalty_param_v = 10**-5
+init_penalty_param_mu = 10
+init_penalty_param_v = 10**-2
 
 LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
 
 init_mul = jnp.zeros(M)
-####################################### config for unconstrained optim #######################################
+####################################### config for unconstrained optim #####################################
 
 
 ####################################### visualization #######################################
@@ -134,10 +135,17 @@ eval_data, eval_ui = Datas.get_eval_data()
 color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
 if Pre_Train:
+    absolute_error_list = l2_relative_error_list = []
     pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, system)
     params = pretrain.update(params, pretrain_maxiter, pretrain_gtol, pretrain_ftol)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
                                 params, eval_data, eval_ui[0])
+    absolute_error_list.append(absolute_error)
+    l2_relative_error_list.append(l2_relative_error)
+    # error_df = pd.DataFrame({'absolute_error': absolute_error_list, \
+    #                         'l2_relative_error': l2_relative_error_list})
+    # folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
+    # error_df.to_csv(folder_path+".csv", index=False)
     print("absolute_error: " + str(absolute_error))
     print("l2_relative_error: " + str(l2_relative_error))
     print("pretrain_loss_list: " + str(pretrain.pretrain_loss_list[-1]))
@@ -149,7 +157,7 @@ if Pre_Train:
     visual.heatmap(eval_data, eval_ui[0], "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
     flat_params, treedef = flatten_params(params)
     pd.DataFrame(flat_params, columns=['params']).\
-    to_csv("params_202020_L2.csv", index=False)                        #check
+    to_csv("params_505050_L2.csv", index=False)                        #check
 
 shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
 shapes, sizes = zip(*shapes_and_sizes)
@@ -163,15 +171,15 @@ _, treedef = flatten_params(params)
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment']
 
-experiment_list = ['l2^2_Penalty_experiment']
+experiment_list = ['Pillo_Aug_Lag_experiment']
 
 for experiment in experiment_list:
     print(experiment)
 
     #############
-    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    # params = pd.read_csv("params_202020_L2.csv").values.flatten()      #check
-    # params = unflatten_params(params, treedef)                            #check
+    # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+    params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
+    params = unflatten_params(params, treedef)                          #check
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param
@@ -269,8 +277,10 @@ for experiment in experiment_list:
             if penalty_param <= panalty_param_upper_bound and experiment != "Pillo_Aug_Lag_experiment":
                 penalty_param = penalty_param_update_factor * penalty_param
             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
+            # if experiment == "Pillo_Aug_Lag_experiment":
                 penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/(2**17):
+            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/(2**20):
+            # if experiment == "Pillo_Aug_Lag_experiment":
                 penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
             if experiment == "Pillo_Aug_Lag_experiment":
                 print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
@@ -314,8 +324,6 @@ for experiment in experiment_list:
     print("total_eq_cons_loss_list: " + str(total_eq_cons_loss_list[-1]))
 error_df = pd.DataFrame({'experiment': experiment_list,'absolute_error': absolute_error_list, \
                         'l2_relative_error': l2_relative_error_list})
-error_df["activation"] = activation_name
-error_df['Beta'] = beta
 folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
 error_df.to_csv(folder_path+".csv", index=False)
 end_time = time.time()

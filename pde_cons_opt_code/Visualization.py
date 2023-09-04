@@ -11,7 +11,7 @@ class Visualization:
             os.makedirs(folder_path)
 
 
-    def heatmap(self, data, sol, types, experiment, activation, beta, nt, xgrid, color_bar_bounds, figure_type = "None"):
+    def heatmap(self, data, sol, types, experiment, nt, xgrid, color_bar_bounds, figure_type = "None"):
         color_bar_lower_bound, color_bar_upper_bound = color_bar_bounds
         x = data[:,0]
         t = data[:,1]
@@ -47,44 +47,44 @@ class Visualization:
         # title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
         title_name = "{experiment}".format(types=types, experiment=experiment)
         # ax.set_title(title_name, fontsize = 15)
-        folder_path = "{current_dir}/result/beta_{beta}/{types}/".\
-                    format(types=types, current_dir=self.current_dir, beta=beta)
+        folder_path = "{current_dir}/result/{types}/".\
+                    format(types=types, current_dir=self.current_dir)
         self.check_path(folder_path)
         plt.savefig(os.path.join(folder_path, title_name+".jpg"))
         plt.show()
         plt.close()
 
 
-    def line_graph(self, ls, types, experiment, activation, beta):
+    def line_graph(self, ls, types, experiment):
         plt.figure()
         plt.plot(ls)
-        title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
+        title_name = "{experiment} {types}".format(types=types, experiment=experiment)
         # plt.title(title_name)
-        folder_path = "{current_dir}/result/beta_{beta}/{types}/".format(types=types, current_dir=self.current_dir, beta=beta)
+        folder_path = "{current_dir}/result/{types}/".format(types=types, current_dir=self.current_dir)
         self.check_path(folder_path)
         plt.savefig(os.path.join(folder_path, title_name+".jpg"))
         plt.show()
         plt.close()
 
 
-    def error_graph(self, df, folder_path, experiment, activation):
-        self.check_path(folder_path)
-        title_name = "{experiment} {activation}".format( experiment=experiment, activation=activation)
-        # df.to_csv(os.path.join(folder_path, title_name+"_error_df.csv"), index = False)
+    # def error_graph(self, df, folder_path, experiment, activation):
+    #     self.check_path(folder_path)
+    #     title_name = "{experiment} {activation}".format( experiment=experiment, activation=activation)
+    #     # df.to_csv(os.path.join(folder_path, title_name+"_error_df.csv"), index = False)
         
-        df.plot(x = "Beta", y='absolute_error',  kind='line')
-        plt.xlabel('Beta')
-        plt.ylabel('absolute_error')
-        # plt.title(title_name+' absolute_error over Beta')
-        plt.savefig(os.path.join(folder_path, f"{experiment}"+"_absolute_error.jpg"))
-        plt.show()
-        plt.close() 
+    #     df.plot(x = "Beta", y='absolute_error',  kind='line')
+    #     plt.xlabel('Beta')
+    #     plt.ylabel('absolute_error')
+    #     # plt.title(title_name+' absolute_error over Beta')
+    #     plt.savefig(os.path.join(folder_path, f"{experiment}"+"_absolute_error.jpg"))
+    #     plt.show()
+    #     plt.close() 
 
-        df.plot(x = "Beta", y='l2_relative_error',  kind='line')
-        plt.xlabel('Beta')
-        plt.ylabel('l2_relative_error')
-        # plt.title(title_name+' l2_relative_error over Beta')
-        plt.savefig(os.path.join(folder_path, f"{experiment}"+"_l2_relative_error.jpg"))
-        plt.show()
-        plt.close()
+    #     df.plot(x = "Beta", y='l2_relative_error',  kind='line')
+    #     plt.xlabel('Beta')
+    #     plt.ylabel('l2_relative_error')
+    #     # plt.title(title_name+' l2_relative_error over Beta')
+    #     plt.savefig(os.path.join(folder_path, f"{experiment}"+"_l2_relative_error.jpg"))
+    #     plt.show()
+    #     plt.close()
 

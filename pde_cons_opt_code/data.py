@@ -2,7 +2,7 @@ import jax.numpy as jnp
 from jax import random
 import numpy as np
 
-from System import Transport_eq, Reaction_Diffusion
+from System import Transport_eq, Reaction_Diffusion, Reaction
 
 
 
@@ -53,6 +53,14 @@ class Data:
             X_star = X_star[index,:]
             xi = X_star[:,0].reshape(1,self.N)
             ti = X_star[:,1].reshape(1,self.N)
+        elif self.system == "reaction":
+            X_star = self.data_grid()
+            index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
+            X_star = X_star[index]
+            reaction = Reaction(self.rho)
+            ui = reaction.solution(reaction.u0(X_star[:,0]), X_star[:,1]).reshape(1,self.N)
+            xi = X_star[:,0].reshape(1,self.N)
+            ti = X_star[:,1].reshape(1,self.N)
         data = jnp.concatenate((xi.T, ti.T), axis=1)
         return data, ui
 
@@ -82,47 +90,7 @@ class Data:
             xi = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
             ti = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
             ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti).reshape(1, data_grid_len)
+        elif self.system == "reaction":
+            reaction = Reaction(self.rho)
+            ui = reaction.solution(reaction.u0(xi[:,:256][0]), ti.reshape(100, 256)).reshape(1,data_grid_len)
         return X_star, ui
-
-
-
-
-
-# from Visualization import Visualization
-# import sys
-# import os
-# import numpy as np
-# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# current_dir = os.getcwd().replace("\\", "/")
-# sys.path.append(parent_dir)
-# visual = Visualization(current_dir)
-
-# # x = jnp.arange(0, 2*jnp.pi, 2*jnp.pi/256)
-# # t = jnp.linspace(0, 1, 100).reshape(-1, 1)
-# # X, T = np.meshgrid(x, t)
-# # X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-
-
-# # xgrid = x.shape[0]
-
-# # sol= Reaction_Diffusion(5,5).solution(x, t)
-# N=1000
-# IC_M=3
-# pde_M=3
-# BC_M=3
-# xgrid=256
-# nt=100 
-# x_min=0
-# x_max=2*jnp.pi
-# t_min=0
-# t_max=1
-# beta=30
-# noise_level=0.01
-# nu=5 
-# rho=5 
-# system='convection'
-# pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system).sample_data(256)
-
-
-# IC_sample_data
-

@@ -92,5 +92,5 @@ class Data:
             ui = Reaction_Diffusion(self.nu, self.rho).solution(xi, ti).reshape(1, data_grid_len)
         elif self.system == "reaction":
             reaction = Reaction(self.rho)
-            ui = reaction.solution(reaction.u0(xi[:,:256][0]), ti.reshape(100, 256)).reshape(1,data_grid_len)
+            ui = reaction.solution(reaction.u0(xi[:,:self.xgrid][0]), ti.reshape(self.nt, self.xgrid)).reshape(1,data_grid_len)
         return X_star, ui

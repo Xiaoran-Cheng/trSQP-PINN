@@ -53,9 +53,9 @@ nu = 20
 rho = 30
 
 xgrid = 256
-nt = 100
-N=100
-IC_M, pde_M, BC_M = 1,3,3                                    #check
+nt = 1000
+N=1000
+IC_M, pde_M, BC_M = 50,50,50                                   #check
 M = IC_M + pde_M + BC_M
 # data_key_num, sample_key_num = 100,256
 data_key_num, sample_key_num = 23312,952
@@ -77,11 +77,11 @@ features = [50,50,50,50,1]                                                #check
 
 ####################################### config for unconstrained optim #######################################
 LBFGS_maxiter = 500000
-max_iter_train = 11                                                       #check
+max_iter_train = 1                                                       #check
 
 penalty_param_update_factor = 2
-init_penalty_param = 1                                                    #check
-panalty_param_upper_bound = 2**11
+init_penalty_param = 1000                                                    #check
+panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
 
 init_penalty_param_mu = 10
 init_penalty_param_v = 10**-2
@@ -134,6 +134,11 @@ pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas
 eval_data, eval_ui = Datas.get_eval_data()
 color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
+
+# print(pde_sample_data)
+# print(IC_sample_data)
+# print(BC_sample_data_zero)
+# print(BC_sample_data_2pi)
 if Pre_Train:
     absolute_error_list = l2_relative_error_list = []
     pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, system)
@@ -167,19 +172,19 @@ _, treedef = flatten_params(params)
 
 # experiment_list = ['SQP_experiment',
 #                     'Pillo_Aug_Lag_experiment',
-#                     'PINN_experiment', 
+#                     'l2^2_Penalty_experiment', 
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment']
 
-experiment_list = ['Pillo_Aug_Lag_experiment']
+experiment_list = ["PINN_experiment"]
 
 for experiment in experiment_list:
     print(experiment)
 
     #############
-    # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
-    params = unflatten_params(params, treedef)                          #check
+    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+    # params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
+    # params = unflatten_params(params, treedef)                          #check
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param
@@ -203,7 +208,7 @@ for experiment in experiment_list:
             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
     else:
-        if experiment == "l2^2_Penalty_experiment":                           # check
+        if experiment == "PINN_experiment":                           # check
             loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                         N, nu, rho, system)
         # elif experiment == "l1_Penalty_experiment":
@@ -273,7 +278,7 @@ for experiment in experiment_list:
                                     penalty_param_v, LBFGS_opt)
 
             if experiment == "Augmented_Lag_experiment":
-                mul = mul + penalty_param * 2 * eq_cons
+                mul = mul + penalty_param  * 2 * eq_cons
             if penalty_param <= panalty_param_upper_bound and experiment != "Pillo_Aug_Lag_experiment":
                 penalty_param = penalty_param_update_factor * penalty_param
             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:

@@ -51,6 +51,7 @@ pretrain_ftol = 1e-9
 beta = 30
 nu = 3
 rho = 12
+alpha = 1
 
 xgrid = 256
 nt = 10000
@@ -128,7 +129,7 @@ activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 absolute_error_list = []
 l2_relative_error_list = []
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system)
+Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
 data, ui = Datas.generate_data(data_key_num)
 pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
 eval_data, eval_ui = Datas.get_eval_data()

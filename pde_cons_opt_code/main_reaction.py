@@ -41,7 +41,7 @@ import pandas as pd
 
 
 #######################################config for pre_train######################################
-Pre_Train = False                                                         #check
+Pre_Train = True                                                         #check
 pretrain_maxiter = 5000000
 pretrain_gtol = 1e-9
 pretrain_ftol = 1e-9
@@ -161,175 +161,175 @@ if Pre_Train:
     visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
     visual.heatmap(eval_data, eval_ui[0], "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
     flat_params, treedef = flatten_params(params)
-    pd.DataFrame(flat_params, columns=['params']).\
-    to_csv("params_505050_L2.csv", index=False)                        #check
+#     pd.DataFrame(flat_params, columns=['params']).\
+#     to_csv("params_505050_L2.csv", index=False)                        #check
 
-shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
-shapes, sizes = zip(*shapes_and_sizes)
-indices = jnp.cumsum(jnp.array(sizes)[:-1])
-_, treedef = flatten_params(params)
+# shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
+# shapes, sizes = zip(*shapes_and_sizes)
+# indices = jnp.cumsum(jnp.array(sizes)[:-1])
+# _, treedef = flatten_params(params)
 
 
-# experiment_list = ['SQP_experiment',
-#                     'Pillo_Aug_Lag_experiment',
-#                     'l2^2_Penalty_experiment', 
-#                     'l2_Penalty_experiment', 
-#                     'Augmented_Lag_experiment']
+# # experiment_list = ['SQP_experiment',
+# #                     'Pillo_Aug_Lag_experiment',
+# #                     'l2^2_Penalty_experiment', 
+# #                     'l2_Penalty_experiment', 
+# #                     'Augmented_Lag_experiment']
 
-experiment_list = ["PINN_experiment"]
+# experiment_list = ["PINN_experiment"]
 
-for experiment in experiment_list:
-    print(experiment)
+# for experiment in experiment_list:
+#     print(experiment)
 
-    #############
-    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    # params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
-    # params = unflatten_params(params, treedef)                          #check
-    #############
-    params_mul = {"params": params, "mul":init_mul}
-    penalty_param = init_penalty_param
-    penalty_param_v = init_penalty_param_v
-    penalty_param_mu = init_penalty_param_mu
-    mul = init_mul
-    # error_df_list = []
-    if experiment == "SQP_experiment":
-        loss_values = []
-        eq_cons_loss_values = []
-        kkt_residual = []
-        sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system)
-        params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
-        total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
-        total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
-        kkt_residual_list = [i.item() for i in kkt_residual if isinstance(i, xla.ArrayImpl)]
-        # absolute_error_iter = [i.item() for i in sqp_optim.absolute_error_iter if isinstance(i, xla.ArrayImpl)]
-        # l2_relative_error_iter = [i.item() for i in sqp_optim.l2_relative_error_iter if isinstance(i, xla.ArrayImpl)]
+#     #############
+#     params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+#     # params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
+#     # params = unflatten_params(params, treedef)                          #check
+#     #############
+#     params_mul = {"params": params, "mul":init_mul}
+#     penalty_param = init_penalty_param
+#     penalty_param_v = init_penalty_param_v
+#     penalty_param_mu = init_penalty_param_mu
+#     mul = init_mul
+#     # error_df_list = []
+#     if experiment == "SQP_experiment":
+#         loss_values = []
+#         eq_cons_loss_values = []
+#         kkt_residual = []
+#         sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system)
+#         params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
+#         total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
+#         total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
+#         kkt_residual_list = [i.item() for i in kkt_residual if isinstance(i, xla.ArrayImpl)]
+#         # absolute_error_iter = [i.item() for i in sqp_optim.absolute_error_iter if isinstance(i, xla.ArrayImpl)]
+#         # l2_relative_error_iter = [i.item() for i in sqp_optim.l2_relative_error_iter if isinstance(i, xla.ArrayImpl)]
 
-        absolute_error, l2_relative_error, eval_u_theta = \
-            sqp_optim.evaluation(params, eval_data, eval_ui[0])
+#         absolute_error, l2_relative_error, eval_u_theta = \
+#             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
-    else:
-        if experiment == "PINN_experiment":                           # check
-            loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N, nu, rho, system)
-        # elif experiment == "l1_Penalty_experiment":
-        #     loss = l1Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-        #                 N)
-        elif experiment == "l2_Penalty_experiment":
-            loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N, nu, rho, system)
-        # elif experiment == "linfinity_Penalty_experiment":
-        #     loss = linfinityPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-        #                 N)
-        elif experiment == "Augmented_Lag_experiment":
-            loss = AugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N, nu, rho, system)
-        # elif experiment == "Pillo_Penalty_experiment":
-        #     loss = PilloPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-        #                 N, M)
-        # elif experiment == "New_Augmented_Lag_experiment":
-        #     loss = NewAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-        #                 N, M)
-        # elif experiment == "Fletcher_Penalty_experiment":
-        #     loss = FletcherPenalty(model, data, pde_sample_data, IC_sample_data, ui[0], beta, \
-        #                 N)
-        elif experiment == "Pillo_Aug_Lag_experiment":
-            loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                        N, nu, rho, system)
+#     else:
+#         if experiment == "PINN_experiment":                           # check
+#             loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, system)
+#         # elif experiment == "l1_Penalty_experiment":
+#         #     loss = l1Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#         #                 N)
+#         elif experiment == "l2_Penalty_experiment":
+#             loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, system)
+#         # elif experiment == "linfinity_Penalty_experiment":
+#         #     loss = linfinityPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#         #                 N)
+#         elif experiment == "Augmented_Lag_experiment":
+#             loss = AugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, system)
+#         # elif experiment == "Pillo_Penalty_experiment":
+#         #     loss = PilloPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#         #                 N, M)
+#         # elif experiment == "New_Augmented_Lag_experiment":
+#         #     loss = NewAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#         #                 N, M)
+#         # elif experiment == "Fletcher_Penalty_experiment":
+#         #     loss = FletcherPenalty(model, data, pde_sample_data, IC_sample_data, ui[0], beta, \
+#         #                 N)
+#         elif experiment == "Pillo_Aug_Lag_experiment":
+#             loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, system)
         
-        total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter = [], [], [], [], []
-        if experiment == "Augmented_Lag_experiment":
-            def callback_func(params):
-                total_loss_list.append(loss.loss(params, mul, penalty_param).item())
-                total_l_k_loss_list.append(loss.l_k(params).item())
-                total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                # u_theta = model.u_theta(params=params, data=eval_data)
-                # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-        elif experiment == "Pillo_Aug_Lag_experiment":
-            def callback_func(params_mul):
-                params = params_mul['params']
-                total_loss_list.append(loss.loss(params_mul, penalty_param_mu, penalty_param_v).item())
-                total_l_k_loss_list.append(loss.l_k(params).item())
-                total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                # u_theta = model.u_theta(params=params, data=eval_data)
-                # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-        else:
-            def callback_func(params):
-                total_loss_list.append(loss.loss(params, penalty_param).item())
-                total_l_k_loss_list.append(loss.l_k(params).item())
-                total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                # u_theta = model.u_theta(params=params, data=eval_data)
-                # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
+#         total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter = [], [], [], [], []
+#         if experiment == "Augmented_Lag_experiment":
+#             def callback_func(params):
+#                 total_loss_list.append(loss.loss(params, mul, penalty_param).item())
+#                 total_l_k_loss_list.append(loss.l_k(params).item())
+#                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+#                 # u_theta = model.u_theta(params=params, data=eval_data)
+#                 # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+#                 # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
+#         elif experiment == "Pillo_Aug_Lag_experiment":
+#             def callback_func(params_mul):
+#                 params = params_mul['params']
+#                 total_loss_list.append(loss.loss(params_mul, penalty_param_mu, penalty_param_v).item())
+#                 total_l_k_loss_list.append(loss.l_k(params).item())
+#                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+#                 # u_theta = model.u_theta(params=params, data=eval_data)
+#                 # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+#                 # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
+#         else:
+#             def callback_func(params):
+#                 total_loss_list.append(loss.loss(params, penalty_param).item())
+#                 total_l_k_loss_list.append(loss.l_k(params).item())
+#                 total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
+#                 # u_theta = model.u_theta(params=params, data=eval_data)
+#                 # absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
+#                 # l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
 
-        LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
-                        fun=loss.loss, \
-                        maxiter=LBFGS_maxiter, \
-                        options={'gtol': LBFGS_gtol, 'ftol': LBFGS_ftol}, \
-                        callback=callback_func)
+#         LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
+#                         fun=loss.loss, \
+#                         maxiter=LBFGS_maxiter, \
+#                         options={'gtol': LBFGS_gtol, 'ftol': LBFGS_ftol}, \
+#                         callback=callback_func)
 
-        optim = Optim(model, loss)
-        for _ in tqdm(range(max_iter_train)):
-            params, params_mul, eq_cons = \
-                optim.update(params, penalty_param, experiment, \
-                                    mul, params_mul, \
-                                    penalty_param_mu, \
-                                    penalty_param_v, LBFGS_opt)
+#         optim = Optim(model, loss)
+#         for _ in tqdm(range(max_iter_train)):
+#             params, params_mul, eq_cons = \
+#                 optim.update(params, penalty_param, experiment, \
+#                                     mul, params_mul, \
+#                                     penalty_param_mu, \
+#                                     penalty_param_v, LBFGS_opt)
 
-            if experiment == "Augmented_Lag_experiment":
-                mul = mul + penalty_param  * 2 * eq_cons
-            if penalty_param <= panalty_param_upper_bound and experiment != "Pillo_Aug_Lag_experiment":
-                penalty_param = penalty_param_update_factor * penalty_param
-            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
-            # if experiment == "Pillo_Aug_Lag_experiment":
-                penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-            if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/(2**20):
-            # if experiment == "Pillo_Aug_Lag_experiment":
-                penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
-            if experiment == "Pillo_Aug_Lag_experiment":
-                print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
-            else:
-                print("penalty_param: ", str(penalty_param))
+#             if experiment == "Augmented_Lag_experiment":
+#                 mul = mul + penalty_param  * 2 * eq_cons
+#             if penalty_param <= panalty_param_upper_bound and experiment != "Pillo_Aug_Lag_experiment":
+#                 penalty_param = penalty_param_update_factor * penalty_param
+#             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
+#             # if experiment == "Pillo_Aug_Lag_experiment":
+#                 penalty_param_mu = penalty_param_update_factor * penalty_param_mu
+#             if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/(2**20):
+#             # if experiment == "Pillo_Aug_Lag_experiment":
+#                 penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
+#             if experiment == "Pillo_Aug_Lag_experiment":
+#                 print("penalty_param_mu: ", str(penalty_param_mu), 'penalty_param_v: ', str(penalty_param_v))
+#             else:
+#                 print("penalty_param: ", str(penalty_param))
 
-            print("Number of iterations:", str(len(total_loss_list)))
+#             print("Number of iterations:", str(len(total_loss_list)))
 
-            pd.DataFrame(flatten_params(params)[0], columns=['params']).\
-                to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
+#             pd.DataFrame(flatten_params(params)[0], columns=['params']).\
+#                 to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
 
-        absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
-                                        params, eval_data, eval_ui[0])
+#         absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
+#                                         params, eval_data, eval_ui[0])
 
-    pd.DataFrame(flatten_params(params)[0], columns=['params']).\
-    to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
+#     pd.DataFrame(flatten_params(params)[0], columns=['params']).\
+#     to_csv("params_{experiment}.csv".format(experiment=experiment), index=False)                        #check
     
-    if experiment != "SQP_experiment":
-        visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment)
-    visual.line_graph(total_eq_cons_loss_list, "Total_eq_cons_Loss", experiment=experiment)
-    visual.line_graph(total_l_k_loss_list, "Total_l_k_Loss", experiment=experiment_list)
-    if experiment == "SQP_experiment":
-        visual.line_graph(kkt_residual_list, "KKT_residual", experiment=experiment)
-    visual.line_graph(eval_ui[0], "True_sol_line", experiment="")
-    visual.line_graph(eval_u_theta, "u_theta_line", experiment=experiment)
-    visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="True_sol", nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
-    visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+#     if experiment != "SQP_experiment":
+#         visual.line_graph(total_loss_list, "Total_Loss", experiment=experiment)
+#     visual.line_graph(total_eq_cons_loss_list, "Total_eq_cons_Loss", experiment=experiment)
+#     visual.line_graph(total_l_k_loss_list, "Total_l_k_Loss", experiment=experiment_list)
+#     if experiment == "SQP_experiment":
+#         visual.line_graph(kkt_residual_list, "KKT_residual", experiment=experiment)
+#     visual.line_graph(eval_ui[0], "True_sol_line", experiment="")
+#     visual.line_graph(eval_u_theta, "u_theta_line", experiment=experiment)
+#     visual.heatmap(eval_data, eval_ui[0], "True_sol_heatmap", experiment="True_sol", nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+#     visual.heatmap(eval_data, eval_u_theta, "u_theta_heatmap", experiment=experiment, nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
 
-    # visual.line_graph(absolute_error_iter, "absolute_error", experiment=experiment)
-    # visual.line_graph(l2_relative_error_iter, "l2_relative_error", experiment=experiment)
+#     # visual.line_graph(absolute_error_iter, "absolute_error", experiment=experiment)
+#     # visual.line_graph(l2_relative_error_iter, "l2_relative_error", experiment=experiment)
 
-    absolute_error_list.append(absolute_error)
-    l2_relative_error_list.append(l2_relative_error)
-    if experiment != "SQP_experiment":
-        print("last loss: "+str(total_loss_list[-1]))
-    if experiment == "SQP_experiment":
-        print("last KKT residual: " + str(kkt_residual_list[-1]))
-    print("absolute_error: " + str(absolute_error))
-    print("l2_relative_error: " + str(l2_relative_error))
-    print("total_l_k_loss_list: " + str(total_l_k_loss_list[-1]))
-    print("total_eq_cons_loss_list: " + str(total_eq_cons_loss_list[-1]))
-error_df = pd.DataFrame({'experiment': experiment_list,'absolute_error': absolute_error_list, \
-                        'l2_relative_error': l2_relative_error_list})
-folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
-error_df.to_csv(folder_path+".csv", index=False)
-end_time = time.time()
-print(f"Execution Time: {(end_time - start_time)/60} minutes")
+#     absolute_error_list.append(absolute_error)
+#     l2_relative_error_list.append(l2_relative_error)
+#     if experiment != "SQP_experiment":
+#         print("last loss: "+str(total_loss_list[-1]))
+#     if experiment == "SQP_experiment":
+#         print("last KKT residual: " + str(kkt_residual_list[-1]))
+#     print("absolute_error: " + str(absolute_error))
+#     print("l2_relative_error: " + str(l2_relative_error))
+#     print("total_l_k_loss_list: " + str(total_l_k_loss_list[-1]))
+#     print("total_eq_cons_loss_list: " + str(total_eq_cons_loss_list[-1]))
+# error_df = pd.DataFrame({'experiment': experiment_list,'absolute_error': absolute_error_list, \
+#                         'l2_relative_error': l2_relative_error_list})
+# folder_path = "{current_dir}/result/error".format(current_dir=current_dir)
+# error_df.to_csv(folder_path+".csv", index=False)
+# end_time = time.time()
+# print(f"Execution Time: {(end_time - start_time)/60} minutes")

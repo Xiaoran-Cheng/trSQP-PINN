@@ -2,12 +2,12 @@ import jax.numpy as jnp
 from jax import random
 import numpy as np
 
-from System import Transport_eq, Reaction_Diffusion, Reaction
+from System import Transport_eq, Reaction_Diffusion, Reaction, Burger
 
 
 
 class Data:
-    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system) -> None:
+    def __init__(self, N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system) -> None:
         self.N = N
         self.IC_M = IC_M
         self.pde_M = pde_M
@@ -24,6 +24,7 @@ class Data:
         self.system = system
         self.nu = nu
         self.rho = rho
+        self.alpha = alpha
 
 
     def data_grid(self):
@@ -58,9 +59,23 @@ class Data:
             index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
             X_star = X_star[index]
             reaction = Reaction(self.rho)
-            ui = reaction.solution(reaction.u0(X_star[:,0]), X_star[:,1]).reshape(1,self.N)
+            ui = reaction.solution(reaction.u0(X_star[:,0]), X_star[:,1]).reshape(1,self.N)  + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
             xi = X_star[:,0].reshape(1,self.N)
             ti = X_star[:,1].reshape(1,self.N)
+        elif self.system == "burger":
+            x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+            t = jnp.linspace(self.t_min, self.t_max, self.nt)
+            X_star = self.data_grid()
+            kappa = 2 * jnp.pi * jnp.fft.fftfreq(self.xgrid, d=self.x_max / self.xgrid)
+            index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
+            ui = Burger(self.alpha).solution(kappa, x, t)[index] + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(self.N,), minval=-self.noise_level, maxval=self.noise_level)
+            ui = ui.reshape(1,self.N)
+            X_star = X_star[index,:]
+            xi = X_star[:,0].reshape(1,self.N)
+            ti = X_star[:,1].reshape(1,self.N)
+        
         data = jnp.concatenate((xi.T, ti.T), axis=1)
         return data, ui
 
@@ -93,4 +108,55 @@ class Data:
         elif self.system == "reaction":
             reaction = Reaction(self.rho)
             ui = reaction.solution(reaction.u0(xi[:,:self.xgrid][0]), ti.reshape(self.nt, self.xgrid)).reshape(1,data_grid_len)
+        elif self.system == "burger":
+            xi = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+            ti = jnp.linspace(self.t_min, self.t_max, self.nt)
+            kappa = 2 * jnp.pi * jnp.fft.fftfreq(self.xgrid, d=self.x_max / self.xgrid)
+            ui = Burger(self.alpha).solution(kappa, xi, ti).reshape(1, data_grid_len)
         return X_star, ui
+
+
+
+
+
+# beta = 30
+# nu = 3
+# rho = 12
+# alpha = 1
+
+# xgrid = 256
+# nt = 10000
+# N=1000
+# IC_M, pde_M, BC_M = 4,5,1                               #check
+# M = IC_M + pde_M + BC_M
+# data_key_num, sample_key_num = 100,256
+# # data_key_num, sample_key_num = 23312,952
+# x_min = 0
+# x_max = 2*jnp.pi
+# t_min = 0
+# t_max = 1
+# noise_level = 0.05                                                       #check
+# system = "burger"    
+
+
+# Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
+# data, ui = Datas.generate_data(data_key_num)
+# pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
+# eval_data, eval_ui = Datas.get_eval_data()
+
+
+
+# from Visualization import Visualization
+# import os
+# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# current_dir = os.getcwd().replace("\\", "/")
+# visual = Visualization(current_dir)
+
+
+
+# color_bar_bounds = [eval_ui.min(), eval_ui.max()]
+# visual.heatmap(eval_data, eval_ui, "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+
+
+
+

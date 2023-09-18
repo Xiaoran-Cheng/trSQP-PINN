@@ -1,4 +1,8 @@
 import jax.numpy as jnp
+from scipy.integrate import odeint
+import numpy as np
+
+
 
 class Transport_eq:
     def __init__(self, beta:float) -> None:
@@ -21,12 +25,16 @@ class Reaction_Diffusion:
         self.rho = rho
 
 
-    def pde(self, dudt, du2dx2, u_theta):
-        return dudt - self.nu * du2dx2 - self.rho * u_theta * (1 - u_theta)
+    def pde(self, dudt, du2dx2, u):
+        return dudt - self.nu * du2dx2 - self.rho * u * (1 - u)
     
 
     def u0(self, x):
-        return jnp.exp(-jnp.power((x - jnp.pi)/(jnp.pi/4), 2.)/2.)
+        x0 = jnp.pi
+        # sigma = jnp.pi/4
+        sigma = 0.5
+        return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
+        # return jnp.sin(x) + 1
 
 
     def reaction(self, u, dt):
@@ -54,7 +62,6 @@ class Reaction_Diffusion:
         IKX_neg = 1j * jnp.arange(-xgrid/2+1, 0, 1)
         IKX = jnp.concatenate((IKX_pos, IKX_neg))
         IKX2 = IKX * IKX
-        # u0 = jnp.exp(-jnp.power((x - jnp.pi)/(jnp.pi/4), 2.)/2.)
         u0 = self.u0(x)
         u = u.at[:,0].set(u0)
         u_ = u0
@@ -74,8 +81,8 @@ class Reaction:
         self.rho = rho
 
 
-    def pde(self, dudt, u_theta):
-        return dudt  - self.rho * u_theta * (1 - u_theta)
+    def pde(self, dudt, u):
+        return dudt  - self.rho * u * (1 - u)
     
 
     def u0(self, x):
@@ -91,3 +98,75 @@ class Reaction:
         factor_2 = (1 - u0)
         return factor_1 / (factor_2 + factor_1)
     
+
+    
+
+
+class Burger:
+    def __init__(self, alpha):
+        self.alpha = alpha
+
+    def pde(self, dudt, dudx, du2dx2, u):
+        return dudt + u * dudx - self.alpha * du2dx2
+
+    def u0(self, x):
+        return jnp.exp(-jnp.power((x - jnp.pi) / 0.5, 2.) / 2.)
+
+    def Burgers_fft(self, u, t, kappa):
+        uhat = np.fft.fft(u)
+        d_uhat = (1j) * kappa * uhat
+        dd_uhat = -jnp.power(kappa, 2) * uhat
+        d_u = np.fft.ifft(d_uhat)
+        dd_u = np.fft.ifft(dd_uhat)
+        du_dt = -u * d_u + self.alpha * dd_u
+        return du_dt.real
+
+    def solution(self, kappa, x, t):
+        u0 = self.u0(x)
+        return odeint(self.Burgers_fft, u0, t, args=(kappa,)).flatten()
+    
+
+# alpha = 1
+
+# xgrid = 256
+# nt = 100
+
+# x_min = 0
+# x_max = 2*jnp.pi
+# t_min = 0
+# t_max = 1
+   
+# x = jnp.arange(x_min, x_max, x_max/xgrid)
+# t = jnp.linspace(t_min, t_max, nt)
+# X, T = np.meshgrid(x, t)
+# X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+# # Usage example:
+# kappa = 2 * jnp.pi * jnp.fft.fftfreq(xgrid, d=x_max / xgrid)
+# solver = Burger(alpha)
+# eval_ui = solver.solution(kappa, x, t)
+# from jax import random
+# # index = random.choice(random.PRNGKey(2), shape=(5,), a=len(X_star), replace=False)
+# # index = [258,259,260, 261]
+# index = [256,257,258]
+# print(eval_ui[index])
+# print("??????????????????")
+
+# kappa = 2 * jnp.pi * jnp.fft.fftfreq(len(index), d=(X_star[index,0][-1] - X_star[index,0][0]) / len(index))
+# print(solver.solution(kappa, X_star[index,0], X_star[index,1]))
+
+
+
+
+# from Visualization import Visualization
+# import os
+# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+# current_dir = os.getcwd().replace("\\", "/")
+# visual = Visualization(current_dir)
+
+
+
+# color_bar_bounds = [eval_ui.min(), eval_ui.max()]
+# visual.heatmap(X_star, eval_ui, "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
+
+
+

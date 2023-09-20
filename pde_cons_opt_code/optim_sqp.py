@@ -3,7 +3,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from System import Transport_eq, Reaction_Diffusion, Reaction
+from System import Transport_eq, Reaction_Diffusion, Reaction, Burger
 
 from jax import numpy as jnp
 from jax import jacfwd, hessian
@@ -14,12 +14,13 @@ import jax
 
 
 class SQP_Optim:
-    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system) -> None:
+    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system) -> None:
         self.model = model
         self.beta = beta
         self.data = data
         self.pde_sample_data = pde_sample_data
         self.IC_sample_data = IC_sample_data
+        self.IC_sample_data_sol = IC_sample_data_sol
         self.BC_sample_data_zero = BC_sample_data_zero
         self.BC_sample_data_2pi = BC_sample_data_2pi
         self.ui = ui
@@ -33,6 +34,7 @@ class SQP_Optim:
         self.l2_relative_error_iter = []
         self.nu = nu
         self.rho = rho
+        self.alpha = alpha
         self.system = system
 
 
@@ -55,9 +57,12 @@ class SQP_Optim:
             return Transport_eq(beta=self.beta).solution(\
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
-            return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
+            # return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
+            return self.IC_sample_data_sol - u_theta
         elif self.system == "reaction":
             return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta
+        elif self.system == "burger":
+            return Burger(self.alpha).u0(self.IC_sample_data[:,0]) - u_theta
 
 
     def BC_cons(self, param_list, treedef):
@@ -85,6 +90,14 @@ class SQP_Optim:
             grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
             dudt = jnp.diag(grad_x[:,:,1])
             return Reaction(self.rho).pde(dudt, u_theta)
+        elif self.system == "burger":
+            u_theta = self.model.u_theta(params=params, data=self.pde_sample_data)
+            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
+            dudt = jnp.diag(grad_x[:,:,1])
+            dudx = jnp.diag(grad_x[:,:,0])
+            grad_xx = hessian(self.model.u_theta, 1)(params, self.pde_sample_data)
+            du2dx2 = jnp.diag(jnp.diagonal(grad_xx[:, :, 0, :, 0], axis1=1, axis2=2))
+            return Burger(self.alpha).pde(dudt, dudx, du2dx2, u_theta)
     
 
     

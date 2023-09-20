@@ -49,13 +49,14 @@ pretrain_ftol = 1e-9
 
 #######################################config for data#######################################
 beta = 30
-nu = 20
+nu = 3
 rho = 30
+alpha = 10
 
 xgrid = 256
 nt = 1000
 N=1000
-IC_M, pde_M, BC_M = 50,50,50                                   #check
+IC_M, pde_M, BC_M = 50,50,50                               #check
 M = IC_M + pde_M + BC_M
 # data_key_num, sample_key_num = 100,256
 data_key_num, sample_key_num = 23312,952
@@ -63,9 +64,8 @@ x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.01                                                       #check
+noise_level = 0.05                                                       #check
 system = "reaction"                                            #check
-# system = 'convection'
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
@@ -80,7 +80,7 @@ LBFGS_maxiter = 500000
 max_iter_train = 1                                                       #check
 
 penalty_param_update_factor = 2
-init_penalty_param = 1000                                                    #check
+init_penalty_param = 1                                                    #check
 panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
 
 init_penalty_param_mu = 10
@@ -128,9 +128,9 @@ activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 absolute_error_list = []
 l2_relative_error_list = []
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system)
+Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
 data, ui = Datas.generate_data(data_key_num)
-pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
+pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
 eval_data, eval_ui = Datas.get_eval_data()
 color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
@@ -176,7 +176,8 @@ if Pre_Train:
 # #                     'l2_Penalty_experiment', 
 # #                     'Augmented_Lag_experiment']
 
-# experiment_list = ["PINN_experiment"]
+# # experiment_list = ['l2^2_Penalty_experiment', 'SQP_experiment']
+# experiment_list = ['l2^2_Penalty_experiment']
 
 # for experiment in experiment_list:
 #     print(experiment)
@@ -196,7 +197,7 @@ if Pre_Train:
 #         loss_values = []
 #         eq_cons_loss_values = []
 #         kkt_residual = []
-#         sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, system)
+#         sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system)
 #         params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
 #         total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
 #         total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
@@ -208,21 +209,21 @@ if Pre_Train:
 #             sqp_optim.evaluation(params, eval_data, eval_ui[0])
         
 #     else:
-#         if experiment == "PINN_experiment":                           # check
-#             loss = PINN(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-#                         N, nu, rho, system)
+#         if experiment == "l2^2_Penalty_experiment":                           # check
+#             loss = PINN(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, alpha, system)
 #         # elif experiment == "l1_Penalty_experiment":
 #         #     loss = l1Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
 #         #                 N)
 #         elif experiment == "l2_Penalty_experiment":
-#             loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-#                         N, nu, rho, system)
+#             loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, alpha, system)
 #         # elif experiment == "linfinity_Penalty_experiment":
 #         #     loss = linfinityPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
 #         #                 N)
 #         elif experiment == "Augmented_Lag_experiment":
-#             loss = AugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-#                         N, nu, rho, system)
+#             loss = AugLag(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, alpha, system)
 #         # elif experiment == "Pillo_Penalty_experiment":
 #         #     loss = PilloPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
 #         #                 N, M)
@@ -233,8 +234,8 @@ if Pre_Train:
 #         #     loss = FletcherPenalty(model, data, pde_sample_data, IC_sample_data, ui[0], beta, \
 #         #                 N)
 #         elif experiment == "Pillo_Aug_Lag_experiment":
-#             loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-#                         N, nu, rho, system)
+#             loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
+#                         N, nu, rho, alpha, system)
         
 #         total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter = [], [], [], [], []
 #         if experiment == "Augmented_Lag_experiment":

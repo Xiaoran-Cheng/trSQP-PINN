@@ -110,7 +110,11 @@ class Burger:
         return dudt + u * dudx - self.alpha * du2dx2
 
     def u0(self, x):
-        return jnp.exp(-jnp.power((x - jnp.pi) / 0.5, 2.) / 2.)
+        x0 = jnp.pi
+        # sigma = jnp.pi/4
+        sigma = 0.5
+        return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
+        # return jnp.sin(x) + 1
 
     def Burgers_fft(self, u, t, kappa):
         uhat = np.fft.fft(u)
@@ -129,13 +133,13 @@ class Burger:
 # alpha = 1
 
 # xgrid = 256
-# nt = 100
+# nt = 1000
 
 # x_min = 0
 # x_max = 2*jnp.pi
 # t_min = 0
 # t_max = 1
-   
+
 # x = jnp.arange(x_min, x_max, x_max/xgrid)
 # t = jnp.linspace(t_min, t_max, nt)
 # X, T = np.meshgrid(x, t)
@@ -144,17 +148,6 @@ class Burger:
 # kappa = 2 * jnp.pi * jnp.fft.fftfreq(xgrid, d=x_max / xgrid)
 # solver = Burger(alpha)
 # eval_ui = solver.solution(kappa, x, t)
-# from jax import random
-# # index = random.choice(random.PRNGKey(2), shape=(5,), a=len(X_star), replace=False)
-# # index = [258,259,260, 261]
-# index = [256,257,258]
-# print(eval_ui[index])
-# print("??????????????????")
-
-# kappa = 2 * jnp.pi * jnp.fft.fftfreq(len(index), d=(X_star[index,0][-1] - X_star[index,0][0]) / len(index))
-# print(solver.solution(kappa, X_star[index,0], X_star[index,1]))
-
-
 
 
 # from Visualization import Visualization

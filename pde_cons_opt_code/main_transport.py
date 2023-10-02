@@ -141,7 +141,7 @@ params = model.init_params(NN_key_num=NN_key_num, data=data)
 # print(BC_sample_data_2pi)
 if Pre_Train:
     absolute_error_list = l2_relative_error_list = []
-    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, system)
+    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, alpha, system)
     params = pretrain.update(params, pretrain_maxiter, pretrain_gtol, pretrain_ftol)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
                                 params, eval_data, eval_ui[0])

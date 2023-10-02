@@ -1,4 +1,6 @@
 import time
+
+from tensorflow.python.ops.gen_math_ops import TruncateDiv
 start_time = time.time()
 
 import sys
@@ -27,6 +29,7 @@ from Visualization import Visualization
 from uncons_opt import Optim
 from pre_train import PreTrain
 
+
 import pandas as pd
 from jax import numpy as jnp
 from flax import linen as nn
@@ -49,22 +52,22 @@ pretrain_ftol = 1e-9
 
 #######################################config for data#######################################
 beta = 30
-nu = 3
-rho = 5
+nu = 2
+rho = 20
 alpha = 10
 
 xgrid = 256
 nt = 10000
 N=1000
-IC_M, pde_M, BC_M = 30,30,30                               #check
+IC_M, pde_M, BC_M = 2,2,2                          #check
 M = IC_M + pde_M + BC_M
-# data_key_num, sample_key_num = 100,256
-data_key_num, sample_key_num = 23312,952
+data_key_num, sample_key_num = 100,256
+# data_key_num, sample_key_num = 23312,952
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.05                                                       #check
+noise_level = 0.005                                                       #check
 system = "reaction_diffusion"                                            #check
 ####################################### config for data #######################################
 
@@ -72,12 +75,11 @@ system = "reaction_diffusion"                                            #check
 # NN_key_num = 345
 NN_key_num = 7654
 features = [50,50,50,50,1]                                                #check
-# features = [3,3,1]                                                #check
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
 LBFGS_maxiter = 500000
-max_iter_train = 1                                                       #check
+max_iter_train = 11                                                       #check
 
 penalty_param_update_factor = 2
 init_penalty_param = 1                                                    #check
@@ -141,7 +143,7 @@ params = model.init_params(NN_key_num=NN_key_num, data=data)
 # print(BC_sample_data_2pi)
 if Pre_Train:
     absolute_error_list = l2_relative_error_list = []
-    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, system)
+    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, alpha, system)
     params = pretrain.update(params, pretrain_maxiter, pretrain_gtol, pretrain_ftol)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
                                 params, eval_data, eval_ui[0])
@@ -176,16 +178,15 @@ _, treedef = flatten_params(params)
 #                     'l2_Penalty_experiment', 
 #                     'Augmented_Lag_experiment']
 
-# experiment_list = ['l2^2_Penalty_experiment', 'SQP_experiment']
-experiment_list = ['l2^2_Penalty_experiment']
+experiment_list = ['Pillo_Aug_Lag_experiment']
+# experiment_list = ['SQP_experiment','Augmented_Lag_experiment', 'l2^2_Penalty_experiment']
 
 for experiment in experiment_list:
     print(experiment)
-
     #############
-    params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-    # params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
-    # params = unflatten_params(params, treedef)                          #check
+    # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
+    params = pd.read_csv("params_505050_L2.csv").values.flatten()      #check
+    params = unflatten_params(params, treedef)                          #check
     #############
     params_mul = {"params": params, "mul":init_mul}
     penalty_param = init_penalty_param

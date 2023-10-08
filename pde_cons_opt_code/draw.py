@@ -29,21 +29,22 @@ dicts = {'params_Augmented_Lag_experiment.csv': "ALM",
 }
 
 beta = 30
-nu = 20
-rho = 30
+nu = 2
+rho = 20
+alpha = 10
 
 xgrid = 256
-nt = 1000
+nt = 10000
 N=1000
-IC_M, pde_M, BC_M = 1,2,2                
+IC_M, pde_M, BC_M = 2,2,2                          #check
 M = IC_M + pde_M + BC_M
-data_key_num, sample_key_num = 23312,952
+data_key_num, sample_key_num = 100,256
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.01                                     
-system = "reaction"                                            #check
+noise_level = 0.005                                                       #check
+system = "reaction_diffusion"                                            #check
 
 NN_key_num = 7654
 features = [50,50,50,50,1]                      
@@ -72,7 +73,7 @@ def get_params_dirs(problem):
 activation = nn.tanh
 activation_name = activation.__name__
 model = NN(features=features, activation=activation)
-Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, system)
+Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
 data, ui = Datas.generate_data(data_key_num)
 eval_data, eval_ui = Datas.get_eval_data()
 color_bar_bounds = [eval_ui.min(), eval_ui.max()]

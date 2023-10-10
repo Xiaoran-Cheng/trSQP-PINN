@@ -54,8 +54,8 @@ def check_path(folder_path):
         os.makedirs(folder_path)
 
 error_df_list = []
-beta_list = [0.001, 0.0001]
-iteration_point_check_convergence = [3,9,12]
+beta_list = [0.0001]
+iteration_point_check_convergence = [2,3]
 for beta in beta_list:
     #######################################config for pre_train######################################
     Pre_Train = False                                                         #check
@@ -124,7 +124,6 @@ for beta in beta_list:
     sqp_initial_tr_radius = 1
     ####################################### config for SQP #######################################
 
-
     activation_input = "tanh"
 
     if activation_input == "sin":
@@ -143,10 +142,6 @@ for beta in beta_list:
     color_bar_bounds = [eval_ui.min(), eval_ui.max()]
     params = model.init_params(NN_key_num=NN_key_num, data=data)
 
-    # print(pde_sample_data)
-    # print(IC_sample_data)
-    # print(BC_sample_data_zero)
-    # print(BC_sample_data_2pi)
     if Pre_Train:
         absolute_error_list = l2_relative_error_list = []
         pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, alpha, system)
@@ -166,7 +161,7 @@ for beta in beta_list:
         visual.heatmap(eval_data, eval_ui[0], "beta_test_{beta}".format(beta=beta), "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
         flat_params, treedef = flatten_params(params)
         pd.DataFrame(flat_params, columns=['params']).\
-        to_csv("params_303030_L2.csv", index=False)                        #check
+        to_csv("params_100100100_L2.csv", index=False)                        #check
 
     shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
     shapes, sizes = zip(*shapes_and_sizes)
@@ -179,15 +174,19 @@ for beta in beta_list:
     #                     'l2^2_Penalty_experiment', 
     #                     'l2_Penalty_experiment', 
     #                     'Augmented_Lag_experiment']
-
-    # experiment_list = ['l2^2_Penalty_experiment', 'SQP_experiment']
-    experiment_list = ['SQP_experiment', 'l2^2_Penalty_experiment']
-
+    experiment_list = ['SQP_experiment','l2^2_Penalty_experiment']
+ 
     for experiment in experiment_list:
         print(experiment)
+
+        data_frame_path = "{current_dir}/result/{test}/{experiment}_dataframes".format(experiment=experiment, \
+                                                        test="beta_test_"+str(beta), current_dir=current_dir)
+        intermediate_data_frame_path = data_frame_path+"/intermediate_SQP_params/"
+        check_path(data_frame_path) 
+        check_path(intermediate_data_frame_path) 
         #############
         params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
-        # params = pd.read_csv("params_303030_L2.csv").values.flatten()      #check
+        # params = pd.read_csv("params_100100100_L2.csv").values.flatten()      #check
         # params = unflatten_params(params, treedef)                          #check
         #############
         params_mul = {"params": params, "mul":init_mul}
@@ -199,13 +198,28 @@ for beta in beta_list:
             loss_values = []
             eq_cons_loss_values = []
             kkt_residual = []
-            sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system)
+            sqp_optim = SQP_Optim(model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system, intermediate_data_frame_path)
             params = sqp_optim.SQP_optim(params, loss_values, eq_cons_loss_values, kkt_residual, sqp_maxiter, sqp_hessian, sqp_gtol, sqp_xtol, sqp_initial_constr_penalty, sqp_initial_tr_radius)
             total_l_k_loss_list = [i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]
             total_eq_cons_loss_list = [i.item() for i in eq_cons_loss_values if isinstance(i, xla.ArrayImpl)]
             kkt_residual_list = [i.item() for i in kkt_residual if isinstance(i, xla.ArrayImpl)]
-            absolute_error_iter = [i.item() for i in sqp_optim.absolute_error_iter if isinstance(i, xla.ArrayImpl)]
-            l2_relative_error_iter = [i.item() for i in sqp_optim.l2_relative_error_iter if isinstance(i, xla.ArrayImpl)]
+
+
+            lists_of_file_names = sorted([f for f in os.listdir(intermediate_data_frame_path) if os.path.isfile(os.path.join(intermediate_data_frame_path, f))]\
+                   , key=lambda x: int("".join([i for i in x if i.isdigit()])))
+
+            absolute_error_iter, l2_relative_error_iter = [], []
+            for file in lists_of_file_names:
+                full_file_path = os.path.join(intermediate_data_frame_path, file)
+                error_params = pd.read_csv(full_file_path).values.flatten()
+                error_params = unflatten_params(error_params, treedef)
+                absolute_error, l2_relative_error = sqp_optim.evaluation(error_params)[:2]
+                absolute_error_iter.append(absolute_error)
+                l2_relative_error_iter.append(l2_relative_error)
+                
+            # absolute_error_iter = [i.item() for i in sqp_optim.absolute_error_iter if isinstance(i, xla.ArrayImpl)]
+            # l2_relative_error_iter = [i.item() for i in sqp_optim.l2_relative_error_iter if isinstance(i, xla.ArrayImpl)]
+            # print(absolute_error_iter)
             time_iter = sqp_optim.time_iter
             absolute_error, l2_relative_error, eval_u_theta = \
                 sqp_optim.evaluation(params)
@@ -358,9 +372,7 @@ for beta in beta_list:
         print("total_l_k_loss_list: " + str(total_l_k_loss_list[-1]))
         print("total_eq_cons_loss_list: " + str(total_eq_cons_loss_list[-1]))
 
-        data_frame_path = "{current_dir}/result/{test}/{experiment}_dataframes".format(experiment=experiment, \
-                                                        test="beta_test_"+str(beta), current_dir=current_dir)
-        check_path(data_frame_path)        
+ 
         pd.DataFrame(flatten_params(params)[0], columns=['params']).\
         to_csv(data_frame_path+"/params_{experiment}_{test}.csv".format(experiment=experiment, \
                                                     test="beta_test_"+str(beta), current_dir=current_dir), index=False)
@@ -413,4 +425,6 @@ folder_path = "{current_dir}/result/metrics_table".format(current_dir=current_di
 pd.concat(error_df_list).to_csv(folder_path+".csv", index=False)
 end_time = time.time()
 print(f"Execution Time: {(end_time - full_start_time)/60} minutes")
+
+
 

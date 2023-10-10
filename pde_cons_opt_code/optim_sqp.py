@@ -12,11 +12,11 @@ from scipy.optimize import minimize
 import jax
 import time
 import jaxlib.xla_extension as xla
-
+import pandas as pd
 
 
 class SQP_Optim:
-    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system) -> None:
+    def __init__(self, model, params, beta, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui, N, eval_data, eval_ui, nu, rho, alpha, system, intermediate_data_frame_path) -> None:
         self.model = model
         self.beta = beta
         self.data = data
@@ -32,27 +32,35 @@ class SQP_Optim:
         self.indices = jnp.cumsum(jnp.array(self.sizes)[:-1])
         self.eval_data = eval_data
         self.eval_ui = eval_ui
-        self.absolute_error_iter = []
-        self.l2_relative_error_iter = []
+        # self.absolute_error_iter = []
+        # self.l2_relative_error_iter = []
         self.time_iter = []
         self.nu = nu
         self.rho = rho
         self.alpha = alpha
         self.system = system
         self.start_time = time.time()
-
+        self.intermediate_data_frame_path = intermediate_data_frame_path
+        
 
     def obj(self, param_list, treedef, loss_values):
         params = self.unflatten_params(param_list, treedef)
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
+        len_loss_values = len([i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)])
+        # self.absolute_error_iter.append(self.evaluation(params)[0])
+        # self.l2_relative_error_iter.append(self.evaluation(params)[1])
         loss_values.append(obj_value)
-        len_absolute_error_iter = len([i.item() for i in self.absolute_error_iter if isinstance(i, xla.ArrayImpl)])
-        self.absolute_error_iter.append(self.evaluation(params)[0])
-        self.l2_relative_error_iter.append(self.evaluation(params)[1])
-        
-        if len([i.item() for i in self.absolute_error_iter if isinstance(i, xla.ArrayImpl)]) - len_absolute_error_iter > 0:
+        if len([i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]) - len_loss_values > 0:
             self.time_iter.append(time.time() - self.start_time)
+            try:
+                pd.DataFrame(param_list.primal, columns=['params']).\
+                    to_csv(self.intermediate_data_frame_path+"param_{index}.csv".\
+                           format(index=len_loss_values), index=False)
+            except:
+                pd.DataFrame(param_list, columns=['params']).\
+                    to_csv(self.intermediate_data_frame_path+"param_{index}.csv".\
+                           format(index=len_loss_values), index=False)
         return obj_value
 
 

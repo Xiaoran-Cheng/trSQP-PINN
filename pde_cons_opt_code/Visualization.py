@@ -11,7 +11,7 @@ class Visualization:
             os.makedirs(folder_path)
 
 
-    def heatmap(self, data, sol, types, experiment, nt, xgrid, color_bar_bounds, figure_type = "None"):
+    def heatmap(self, data, sol, test, types, experiment, nt, xgrid, color_bar_bounds, figure_type = "None"):
         color_bar_lower_bound, color_bar_upper_bound = color_bar_bounds
         x = data[:,0]
         t = data[:,1]
@@ -47,20 +47,23 @@ class Visualization:
         # title_name = "{experiment} {types} {activation} for beta={beta}".format(beta=beta, types=types, experiment=experiment, activation=activation)
         title_name = "{experiment}".format(types=types, experiment=experiment)
         # ax.set_title(title_name, fontsize = 15)
-        folder_path = "{current_dir}/result/{types}/".\
-                    format(types=types, current_dir=self.current_dir)
+        folder_path = "{current_dir}/result/{test}/{types}/".\
+                    format(types=types, current_dir=self.current_dir, test=test)
         self.check_path(folder_path)
         plt.savefig(os.path.join(folder_path, title_name+".jpg"))
         plt.show()
         plt.close()
 
 
-    def line_graph(self, ls, types, experiment):
+    def line_graph(self, ls, test, types, experiment, x=None):
         plt.figure()
-        plt.plot(ls)
+        if x is None:
+            plt.plot(ls)
+        else:
+            plt.plot(x, ls)
         title_name = "{experiment} {types}".format(types=types, experiment=experiment)
         # plt.title(title_name)
-        folder_path = "{current_dir}/result/{types}/".format(types=types, current_dir=self.current_dir)
+        folder_path = "{current_dir}/result/{test}/{types}/".format(types=types, current_dir=self.current_dir, test=test)
         self.check_path(folder_path)
         plt.savefig(os.path.join(folder_path, title_name+".jpg"))
         plt.show()

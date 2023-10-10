@@ -10,6 +10,8 @@ from jax import jacfwd, hessian
 import numpy as np
 from scipy.optimize import minimize
 import jax
+import time
+import jaxlib.xla_extension as xla
 
 
 
@@ -32,10 +34,12 @@ class SQP_Optim:
         self.eval_ui = eval_ui
         self.absolute_error_iter = []
         self.l2_relative_error_iter = []
+        self.time_iter = []
         self.nu = nu
         self.rho = rho
         self.alpha = alpha
         self.system = system
+        self.start_time = time.time()
 
 
     def obj(self, param_list, treedef, loss_values):
@@ -43,6 +47,12 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         loss_values.append(obj_value)
+        len_absolute_error_iter = len([i.item() for i in self.absolute_error_iter if isinstance(i, xla.ArrayImpl)])
+        self.absolute_error_iter.append(self.evaluation(params)[0])
+        self.l2_relative_error_iter.append(self.evaluation(params)[1])
+        
+        if len([i.item() for i in self.absolute_error_iter if isinstance(i, xla.ArrayImpl)]) - len_absolute_error_iter > 0:
+            self.time_iter.append(time.time() - self.start_time)
         return obj_value
 
 
@@ -139,7 +149,6 @@ class SQP_Optim:
             'fun': self.eq_cons,
             'jac': self.grads_eq_cons,
             'args': (treedef, eq_cons_loss_values, loss_values, kkt_residual)}
-        
         solution = minimize(self.obj, \
                             flat_params, \
                             args=(treedef,loss_values), \
@@ -153,17 +162,15 @@ class SQP_Optim:
                                     'verbose': 3}, \
                             constraints=constraints, \
                             hess = sqp_hessian)
-
-
         params_opt = self.unflatten_params(solution.x, treedef)
         print(solution)
         return params_opt
 
 
-    def evaluation(self, params, data, ui):
-        u_theta = self.model.u_theta(params=params, data=data)
-        absolute_error = jnp.mean(jnp.abs(u_theta-ui))
-        l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
+    def evaluation(self, params):
+        u_theta = self.model.u_theta(params=params, data=self.eval_data)
+        absolute_error = jnp.mean(jnp.abs(u_theta-self.eval_ui))
+        l2_relative_error = jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2)
         return absolute_error, l2_relative_error, u_theta
  
 

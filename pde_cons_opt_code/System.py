@@ -85,10 +85,8 @@ class Reaction:
 
     def u0(self, x):
         x0 = jnp.pi
-        # sigma = jnp.pi/4
         sigma = 0.5
         return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
-        # return jnp.sin(x) + 1
 
 
     def solution(self, u0, t):

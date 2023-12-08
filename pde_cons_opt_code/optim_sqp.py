@@ -32,8 +32,6 @@ class SQP_Optim:
         self.indices = jnp.cumsum(jnp.array(self.sizes)[:-1])
         self.eval_data = eval_data
         self.eval_ui = eval_ui
-        # self.absolute_error_iter = []
-        # self.l2_relative_error_iter = []
         self.time_iter = []
         self.nu = nu
         self.rho = rho
@@ -48,19 +46,19 @@ class SQP_Optim:
         u_theta = self.model.u_theta(params=params, data=self.data)
         obj_value = 1 / self.N * jnp.square(jnp.linalg.norm(u_theta - self.ui, ord=2))
         len_loss_values = len([i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)])
-        # self.absolute_error_iter.append(self.evaluation(params)[0])
-        # self.l2_relative_error_iter.append(self.evaluation(params)[1])
         loss_values.append(obj_value)
         if len([i.item() for i in loss_values if isinstance(i, xla.ArrayImpl)]) - len_loss_values > 0:
             self.time_iter.append(time.time() - self.start_time)
             try:
-                pd.DataFrame(param_list.primal, columns=['params']).\
+                param_df = param_list.primal
+            except:
+                param_df = param_list
+            try:
+                pd.DataFrame(param_df, columns=['params']).\
                     to_csv(self.intermediate_data_frame_path+"param_{index}.csv".\
                            format(index=len_loss_values), index=False)
             except:
-                pd.DataFrame(param_list, columns=['params']).\
-                    to_csv(self.intermediate_data_frame_path+"param_{index}.csv".\
-                           format(index=len_loss_values), index=False)
+              pass
         return obj_value
 
 
@@ -178,7 +176,8 @@ class SQP_Optim:
     def evaluation(self, params):
         u_theta = self.model.u_theta(params=params, data=self.eval_data)
         absolute_error = jnp.mean(jnp.abs(u_theta-self.eval_ui))
-        l2_relative_error = jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2)
+        # l2_relative_error = jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2)
+        l2_relative_error = jnp.power(jnp.power((u_theta-self.eval_ui), 2).sum(), 1/2) / jnp.power(jnp.power((self.eval_ui), 2).sum(), 1/2)
         return absolute_error, l2_relative_error, u_theta
  
 

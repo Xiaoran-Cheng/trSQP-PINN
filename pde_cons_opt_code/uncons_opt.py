@@ -27,7 +27,7 @@ class Optim:
                     penalty_param_mu, \
                     penalty_param_v, LBFGS_opt):
      
-        if experiment == "Augmented_Lag_experiment":
+        if experiment == "Augmented_Lag_experiment" or experiment == "Augmented_Lag_experiment_2":
             params, _ = LBFGS_opt.run(params, penalty_param = penalty_param, mul = mul)
 
         elif experiment == "Pillo_Aug_Lag_experiment":
@@ -43,7 +43,7 @@ class Optim:
     def evaluation(self, params, data, ui):
         u_theta = self.model.u_theta(params=params, data=data)
         absolute_error = jnp.mean(np.abs(u_theta-ui))
-        l2_relative_error = jnp.linalg.norm((u_theta-ui), ord = 2) / jnp.linalg.norm((ui), ord = 2)
+        l2_relative_error = jnp.power(jnp.power((u_theta-ui), 2).sum(), 1/2) / jnp.power(jnp.power((ui), 2).sum(), 1/2)
         return absolute_error, l2_relative_error, u_theta
     
 

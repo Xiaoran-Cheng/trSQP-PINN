@@ -31,9 +31,9 @@ class Visualization:
             cbar = fig.colorbar(h, cax=cax)
             cbar.ax.tick_params(labelsize=15)
 
-        ax.set_xlabel('t', fontweight='bold', size=30, labelpad=1)
+        ax.set_xlabel('t', size=25, labelpad=1)
         if "PINN" in figure_type or figure_type == "None" or figure_type == "L2^2":
-            ax.set_ylabel('x', fontweight='bold', size=30, labelpad=1)
+            ax.set_ylabel('s', size=25, labelpad=15, rotation='horizontal')
         ax.legend(
             loc='upper center',
             bbox_to_anchor=(0.9, -0.05),

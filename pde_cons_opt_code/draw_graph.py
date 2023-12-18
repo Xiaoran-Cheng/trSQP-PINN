@@ -43,7 +43,7 @@ def get_params_dirs(problem):
     return params_dirs
 
 xgrid = 256
-nt = 1000
+nt = 100
 N=1000
 IC_M, pde_M, BC_M = 1,2,2            
 M = IC_M + pde_M + BC_M

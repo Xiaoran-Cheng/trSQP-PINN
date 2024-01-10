@@ -4,7 +4,6 @@ PINN is a recent development in the Scientific ML field that incorporates physic
 
 ## Usage
 Run experiments by executing
-
-include("/file_location/problem_name/method_name/Main.jl")
-
-You might need to edit the current working directory in Main.jl script.
+```python
+main_reaction.py
+```

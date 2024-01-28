@@ -74,8 +74,9 @@ nt = 100
 N=1000
 IC_M, pde_M, BC_M = 3,3,3                              #check
 M = IC_M + pde_M + BC_M
-data_key_num, sample_key_num = 100,256
+# data_key_num, sample_key_num = 100,256
 # data_key_num, sample_key_num = 23312,952
+data_key_num, sample_key_num = 1,1
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
@@ -87,7 +88,7 @@ system = "convection"                                            #check
 ####################################### config for NN #######################################
 NN_key_num = 345
 # NN_key_num = 7654
-features = [50,1]                                                #check
+features = [50,50,1]                                                #check
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
@@ -144,7 +145,7 @@ elif activation_input == "identity":
 activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 
-test_now = "NN_depth_test_{size}".format(size=len(features)-1)
+test_now = "NN_depth_test_{depth}".format(depth=len(features) - 1)
 
 Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
 data, ui = Datas.generate_data(data_key_num)
@@ -175,7 +176,7 @@ if Pre_Train:
                 'experiment': "pre_train", \
                 'absolute_error': [absolute_error], \
                 'l2_relative_error': [l2_relative_error], \
-                'NN depth': [len(features)-1], \
+                'depth': [len(features) - 1], \
                 }).to_csv(pretrain_path+"error_{test}.csv".format(test=test_now), index=False, mode="a")
 
 
@@ -185,10 +186,10 @@ indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
 
-experiment_list = ['SQP_experiment']
-
-# experiment_list = ['SQP_experiment','l2^2_Penalty_experiment','Augmented_Lag_experiment']
-# experiment_list = ['l2^2_Penalty_experiment','Augmented_Lag_experiment','SQP_experiment']
+# experiment_list = ['l2^2_Penalty_experiment']
+experiment_list = ['Augmented_Lag_experiment']
+# experiment_list = ['SQP_experiment']
+# experiment_list = ['l2^2_Penalty_experiment','Augmented_Lag_experiment']
 
 for experiment in experiment_list:
     print(experiment)
@@ -438,7 +439,7 @@ for experiment in experiment_list:
                               'experiment': [experiment], \
                               'absolute_error': [absolute_error], \
                               'l2_relative_error': [l2_relative_error], \
-                              'NN depth': [len(features)-1], \
+                              'depth': [len(features) - 1], \
                               'iterations': [len(time_iter)], \
                               'time_usage':[time_iter[-1]], \
                               'iteration_point_check': [iteration_point_check_convergence], \
@@ -453,7 +454,7 @@ for experiment in experiment_list:
                         'experiment': [experiment], \
                         'absolute_error': [absolute_error], \
                         'l2_relative_error': [l2_relative_error], \
-                        'NN depth': [len(features)-1], \
+                        'depth': [len(features) - 1], \
                         'iterations': [len(time_iter)], \
                         'time_usage':[time_iter[-1]], \
                         'iteration_point_check': [iteration_point_check_convergence], \

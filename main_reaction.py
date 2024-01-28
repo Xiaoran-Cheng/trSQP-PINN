@@ -63,8 +63,7 @@ pretrain_ftol = 1e-9
 
 #######################################config for data#######################################
 error_df_list = []
-# [0.01,1,10,30,40]
-rho = 30
+rho = -30
 beta = 30
 nu = 3
 alpha = 10
@@ -73,11 +72,14 @@ xgrid = 256
 nt = 1000
 N=1000
 IC_M, pde_M, BC_M = 1,2,2                              #check
-# IC_M, pde_M, BC_M = 15,15,15                              #check
+# IC_M, pde_M, BC_M = 50,50,50                              #check
 M = IC_M + pde_M + BC_M
-# data_key_num, sample_key_num = 100,256
-data_key_num, sample_key_num = 23312,952
-# data_key_num, sample_key_num = 2345,432
+# data_key_num, sample_key_num = 100,3831
+# data_key_num, sample_key_num = 23312,952
+# data_key_num, sample_key_num = 123311,199429   # pretrain
+# data_key_num, sample_key_num = 6709,120
+data_key_num, sample_key_num = 6709,10947  # best with previous pretrain
+
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
@@ -87,8 +89,8 @@ system = "reaction"                                            #check
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
-# NN_key_num = 345
-NN_key_num = 7654
+NN_key_num = 345
+# NN_key_num = 7654
 # NN_key_num = 234
 features = [50,50,50,50,1]                                                #check
 ###################################### config for NN #######################################
@@ -147,7 +149,7 @@ elif activation_input == "identity":
 activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 
-test_now = "M_test_{M}".format(M = "45")
+test_now = "rho_test_{rho}".format(rho = rho)
 
 Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
 data, ui = Datas.generate_data(data_key_num)
@@ -157,6 +159,12 @@ color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
 pretrain_path = "{current_dir}/result/{test}/".format(\
                       test=test_now, current_dir=current_dir)
+
+print(pde_sample_data)
+# print(IC_sample_data)
+print(np.sum((pde_sample_data[:, 0] > 3.1) & (pde_sample_data[:, 0] < 3.2)).item())
+print(np.sum((IC_sample_data[:, 0] > 2.5) & (IC_sample_data[:, 0] < 3.5)).item())
+print(np.sum((data[:, 0] > 3.1) & (data[:, 0] < 3.2)).item())
 
 if Pre_Train:
     pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], nu, rho, alpha, system)
@@ -178,7 +186,7 @@ if Pre_Train:
                 'experiment': "pre_train", \
                 'absolute_error': [absolute_error], \
                 'l2_relative_error': [l2_relative_error], \
-                'M': [M], \
+                'rho': [rho], \
                 }).to_csv(pretrain_path+"error_{test}.csv".format(test=test_now), index=False, mode="a")
 
 
@@ -188,10 +196,10 @@ indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
 
-experiment_list = ['SQP_experiment']
-# 
+# experiment_list = ['SQP_experiment']
 # experiment_list = ['Augmented_Lag_experiment']
-# experiment_list = ['Augmented_Lag_experiment','l2^2_Penalty_experiment','SQP_experiment']
+# experiment_list = ['l2^2_Penalty_experiment']
+experiment_list = ['Augmented_Lag_experiment','l2^2_Penalty_experiment']
 
 for experiment in experiment_list:
     print(experiment)
@@ -443,7 +451,7 @@ for experiment in experiment_list:
                               'experiment': [experiment], \
                               'absolute_error': [absolute_error], \
                               'l2_relative_error': [l2_relative_error], \
-                              'M': ["90"], \
+                              'rho': [rho], \
                               'iterations': [len(time_iter)], \
                               'time_usage':[time_iter[-1]], \
                               'iteration_point_check': [iteration_point_check_convergence], \
@@ -458,7 +466,7 @@ for experiment in experiment_list:
                         'experiment': [experiment], \
                         'absolute_error': [absolute_error], \
                         'l2_relative_error': [l2_relative_error], \
-                        'M': ["90"], \
+                        'rho': [rho], \
                         'iterations': [len(time_iter)], \
                         'time_usage':[time_iter[-1]], \
                         'iteration_point_check': [iteration_point_check_convergence], \
@@ -476,3 +484,4 @@ for experiment in experiment_list:
 pd.concat(error_df_list).to_csv("{current_dir}/result/final_metrics_table.csv".format(current_dir=current_dir), index=False)
 end_time = time.time()
 print(f"Execution Time: {(end_time - full_start_time)/60} minutes")
+

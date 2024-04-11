@@ -32,6 +32,7 @@ class Reaction_Diffusion:
     def u0(self, x):
         x0 = jnp.pi
         sigma = 0.1
+        # sigma = 0.5
         return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
 
 
@@ -125,37 +126,3 @@ class Burger:
         u0 = self.u0(x)
         return odeint(self.Burgers_fft, u0, t, args=(kappa,)).flatten()
     
-
-# alpha = 1
-
-# xgrid = 256
-# nt = 1000
-
-# x_min = 0
-# x_max = 2*jnp.pi
-# t_min = 0
-# t_max = 1
-
-# x = jnp.arange(x_min, x_max, x_max/xgrid)
-# t = jnp.linspace(t_min, t_max, nt)
-# X, T = np.meshgrid(x, t)
-# X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-# # Usage example:
-# kappa = 2 * jnp.pi * jnp.fft.fftfreq(xgrid, d=x_max / xgrid)
-# solver = Burger(alpha)
-# eval_ui = solver.solution(kappa, x, t)
-
-
-# from Visualization import Visualization
-# import os
-# parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
-# current_dir = os.getcwd().replace("\\", "/")
-# visual = Visualization(current_dir)
-
-
-
-# color_bar_bounds = [eval_ui.min(), eval_ui.max()]
-# visual.heatmap(X_star, eval_ui, "True_sol", experiment='Pre_Train', nt=nt, xgrid=xgrid, color_bar_bounds=color_bar_bounds)
-
-
-

@@ -25,48 +25,49 @@ class Data:
         self.nu = nu
         self.rho = rho
         self.alpha = alpha
+        # self.X_star = X_star
 
 
-    def data_grid(self):
-        x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-        t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
-        X, T = np.meshgrid(x, t)
-        X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-        return X_star
+    # def data_grid(self):
+    #     x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+    #     t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
+    #     X, T = np.meshgrid(x, t)
+    #     X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
+    #     return X_star
 
 
-    def generate_data(self, key_num):
+    def generate_data(self, key_num, X_star, eval_ui):
         if self.system == "convection":
-            X_star = self.data_grid()
             X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False),:]
             xi = X_star[:,0].reshape(1,self.N)
             ti = X_star[:,1].reshape(1,self.N)
             ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
         elif self.system == "reaction_diffusion":
-            x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-            t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
-            X_star = self.data_grid()
+            # x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+            # t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
             index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
-            ui = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index] + random.uniform(random.PRNGKey(key_num), \
-                                                    shape=(self.N,), minval=-self.noise_level, maxval=self.noise_level)
+            # ui = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index] + random.uniform(random.PRNGKey(key_num), \
+            #                                         shape=(self.N,), minval=-self.noise_level, maxval=self.noise_level)
+            data_grid_len = self.xgrid*self.nt
+            ui = eval_ui.reshape(data_grid_len, 1)[index] + random.uniform(random.PRNGKey(key_num), \
+                                                    shape=(self.N, 1), minval=-self.noise_level, maxval=self.noise_level)
             ui = ui.reshape(1,self.N)
             X_star = X_star[index,:]
             xi = X_star[:,0].reshape(1,self.N)
             ti = X_star[:,1].reshape(1,self.N)
+
         elif self.system == "reaction":
-            X_star = self.data_grid()
             index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
             X_star = X_star[index]
             reaction = Reaction(self.rho)
-            ui = reaction.solution(reaction.u0(X_star[:,0]), X_star[:,1]).reshape(1,self.N)  + random.uniform(random.PRNGKey(key_num), \
+            ui = reaction.solution(reaction.u0(X_star[:,0]), X_star[:,1]).reshape(1,self.N) + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
             xi = X_star[:,0].reshape(1,self.N)
             ti = X_star[:,1].reshape(1,self.N)
         elif self.system == "burger":
             x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
             t = jnp.linspace(self.t_min, self.t_max, self.nt)
-            X_star = self.data_grid()
             kappa = 2 * jnp.pi * jnp.fft.fftfreq(self.xgrid, d=self.x_max / self.xgrid)
             index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
             ui = Burger(self.alpha).solution(kappa, x, t)[index] + random.uniform(random.PRNGKey(key_num), \
@@ -80,8 +81,7 @@ class Data:
         return data, ui
 
 
-    def sample_data(self, key_num):
-        X_star = self.data_grid()
+    def sample_data(self, key_num, X_star, eval_ui):
         index = random.choice(random.PRNGKey(key_num), shape=(self.M,), a=len(X_star), replace=False)
         X_star = X_star[index,:]
         xj = X_star[:,0].reshape(1,self.M)
@@ -97,15 +97,16 @@ class Data:
         if self.system == 'reaction_diffusion':
             index = random.choice(random.PRNGKey(key_num), shape=(self.IC_M,), a=self.xgrid, replace=False)
             x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-            t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
-            IC_sample_data_sol = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index]
+            # t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
+            # IC_sample_data_sol = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index]
+            data_grid_len = self.xgrid*self.nt
+            IC_sample_data_sol = eval_ui.reshape(data_grid_len, )[index]
             IC_sample_data = jnp.concatenate((x[index].reshape(1,self.IC_M), jnp.zeros((1,self.IC_M))), axis=0).T
 
         return pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi
 
 
-    def get_eval_data(self):
-        X_star = self.data_grid()
+    def get_eval_data(self, X_star):
         data_grid_len = self.xgrid*self.nt
         xi = X_star[:,0].reshape(1,data_grid_len)
         ti = X_star[:,1].reshape(1,data_grid_len)
@@ -125,38 +126,3 @@ class Data:
             ui = Burger(self.alpha).solution(kappa, xi, ti).reshape(1, data_grid_len)
         return X_star, ui
 
-
-
-# beta = 30
-# nu = 3
-# rho = 12
-# alpha = 10
-
-# xgrid = 256
-# nt = 100
-# N=100
-# IC_M, pde_M, BC_M = 3,3,3                               #check
-# M = IC_M + pde_M + BC_M
-# # data_key_num, sample_key_num = 100,256
-# data_key_num, sample_key_num = 23312,952
-# x_min = 0
-# x_max = 2*jnp.pi
-# t_min = 0
-# t_max = 1
-# noise_level = 0.05                                                       #check
-# system = "reaction_diffusion"    
-
-# Datas = Data(N, IC_M, pde_M, BC_M, xgrid, nt, x_min, x_max, t_min, t_max, beta, noise_level, nu, rho, alpha, system)
-# data, ui = Datas.generate_data(data_key_num)
-# pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi = Datas.sample_data(sample_key_num)
-
-
-# print(pde_sample_data)
-# print()
-# print(IC_sample_data)
-# print()
-# print(IC_sample_data_sol)
-# print()
-# print(BC_sample_data_zero)
-# print()
-# print(BC_sample_data_2pi)

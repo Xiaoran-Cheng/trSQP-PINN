@@ -25,16 +25,6 @@ class Data:
         self.nu = nu
         self.rho = rho
         self.alpha = alpha
-        # self.X_star = X_star
-
-
-    # def data_grid(self):
-    #     x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-    #     t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
-    #     X, T = np.meshgrid(x, t)
-    #     X_star = jnp.hstack((X.flatten()[:, None], T.flatten()[:, None]))
-    #     return X_star
-
 
     def generate_data(self, key_num, X_star, eval_ui):
         if self.system == "convection":
@@ -44,11 +34,7 @@ class Data:
             ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(1,self.N), minval=-self.noise_level, maxval=self.noise_level)
         elif self.system == "reaction_diffusion":
-            # x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-            # t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
             index = random.choice(random.PRNGKey(key_num), shape=(self.N,), a=len(X_star), replace=False)
-            # ui = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index] + random.uniform(random.PRNGKey(key_num), \
-            #                                         shape=(self.N,), minval=-self.noise_level, maxval=self.noise_level)
             data_grid_len = self.xgrid*self.nt
             ui = eval_ui.reshape(data_grid_len, 1)[index] + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(self.N, 1), minval=-self.noise_level, maxval=self.noise_level)
@@ -97,8 +83,6 @@ class Data:
         if self.system == 'reaction_diffusion':
             index = random.choice(random.PRNGKey(key_num), shape=(self.IC_M,), a=self.xgrid, replace=False)
             x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-            # t = jnp.linspace(self.t_min, self.t_max, self.nt).reshape(-1, 1)
-            # IC_sample_data_sol = Reaction_Diffusion(self.nu, self.rho).solution(x, t)[index]
             data_grid_len = self.xgrid*self.nt
             IC_sample_data_sol = eval_ui.reshape(data_grid_len, )[index]
             IC_sample_data = jnp.concatenate((x[index].reshape(1,self.IC_M), jnp.zeros((1,self.IC_M))), axis=0).T

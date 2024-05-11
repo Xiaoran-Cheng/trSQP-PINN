@@ -43,7 +43,6 @@ class PreTrain:
             return Transport_eq(beta=self.beta).solution(\
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
-            # return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
             return self.IC_sample_data_sol - u_theta
         elif self.system == "reaction":
             return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta

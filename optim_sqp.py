@@ -73,7 +73,6 @@ class SQP_Optim:
             return Transport_eq(beta=self.beta).solution(\
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
-            # return Reaction_Diffusion(self.nu, self.rho).u0(self.IC_sample_data[:,0]) - u_theta
             return self.IC_sample_data_sol - u_theta
         elif self.system == "reaction":
             return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta
@@ -127,7 +126,6 @@ class SQP_Optim:
     def grads_eq_cons(self, param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual):
         eq_cons_jac = jacfwd(self.eq_cons, 0)(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
         cond_num = jnp.linalg.cond(eq_cons_jac)
-        # if cond_num < 100:
         print("condition number: ", str(cond_num))
         lambdas = (jnp.linalg.inv(eq_cons_jac @ eq_cons_jac.T) @ eq_cons_jac) @ self.grad_objective(param_list, treedef, loss_values)
         L = lambda param_list: self.obj(param_list, treedef, loss_values) - lambdas @ self.eq_cons(param_list, treedef, eq_cons_loss_values, loss_values, kkt_residual)
@@ -136,8 +134,6 @@ class SQP_Optim:
 
 
     def flatten_params(self, params):
-        # _, treedef = jax.tree_util.tree_flatten(params)
-        # return jax.flatten_util.ravel_pytree(params)[0], treedef
         flat_params_list, treedef = jax.tree_util.tree_flatten(params)
         return np.concatenate([param.ravel( ) for param in flat_params_list], axis=0), treedef
 
@@ -176,7 +172,6 @@ class SQP_Optim:
     def evaluation(self, params):
         u_theta = self.model.u_theta(params=params, data=self.eval_data)
         absolute_error = jnp.mean(jnp.abs(u_theta-self.eval_ui))
-        # l2_relative_error = jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2)
         l2_relative_error = jnp.power(jnp.power((u_theta-self.eval_ui), 2).sum(), 1/2) / jnp.power(jnp.power((self.eval_ui), 2).sum(), 1/2)
         return absolute_error, l2_relative_error, u_theta
  

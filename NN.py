@@ -14,7 +14,6 @@ class NN(nn.Module):
         for i, feat in enumerate(self.features):
             x = nn.Dense(feat)(x)
             if i != len(self.features) - 1:
-            # if i == len(self.features) - 2:
                 x = self.activation(x)
         return x
     

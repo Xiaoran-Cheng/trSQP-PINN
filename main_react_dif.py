@@ -6,18 +6,9 @@ parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 current_dir = os.getcwd().replace("\\", "/")
 sys.path.append(parent_dir)
 
-# from jax.config import config
-# config.update("jax_enable_x64", True)
 
 from optim_PINN import PINN
-# from optim_l1_penalty import l1Penalty
-from optim_l2_penalty import l2Penalty
-# from optim_linfinity_penalty import linfinityPenalty
 from optim_aug_lag import AugLag
-# from optim_pillo_penalty import PilloPenalty
-# from optim_new_aug_lag import NewAugLag
-# from optim_fletcher_penalty import FletcherPenalty
-from optim_pillo_aug_lag import PilloAugLag
 from optim_sqp import SQP_Optim
 
 from Data import Data
@@ -54,60 +45,36 @@ def check_path(folder_path):
         os.makedirs(folder_path)
 
 
-#######################################config for pre_train######################################
-Pre_Train = True                                                          #check
+Pre_Train = False
 pretrain_maxiter = 100000000
 pretrain_gtol = 1e-9
 pretrain_ftol = 1e-9
-######################################config for pre_train###################################
-
-#######################################config for data#######################################
 error_df_list = []
-rho = 20
-beta = 30
-nu = 0.01 # 0.01,2,5,8
+rho = 40
+beta = 1
+nu = 2
 alpha = 10
 
 xgrid = 256
 nt = 10000
 N=1000
-# IC_M, pde_M, BC_M = 2,2,2                              #check
-IC_M, pde_M, BC_M = 50,50,50                              #check
+IC_M, pde_M, BC_M = 1,1,0
 M = IC_M + pde_M + BC_M
-# data_key_num, sample_key_num = 6311,91960  pretrain -0.01
-# data_key_num, sample_key_num = 6311,4325   train -0.01
-# data_key_num, sample_key_num = 92552,90858  # pretrain -20
-# data_key_num, sample_key_num = 92552,83980   # train -20
-# data_key_num, sample_key_num = 92552,62891  # pretrain -30
-# data_key_num, sample_key_num = 21387,100   # train -30
-# data_key_num, sample_key_num = 100,256  # pretrain 30
-# data_key_num, sample_key_num = 100,256   # train 30
-
-
-data_key_num, sample_key_num = 92640,72072   # pretrain nu 20
-# data_key_num, sample_key_num = 92640,3865   # train nu 20
+data_key_num, sample_key_num = 100,256
 
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
-noise_level = 0.005                                                       #check
-system = "reaction_diffusion"                                            #check
-####################################### config for data #######################################
-
-####################################### config for NN #######################################
-# NN_key_num = 345
+noise_level = 0.01
+system = "reaction_diffusion"
 NN_key_num = 7654
-# NN_key_num = 234
-features = [50,50,50,50,1]                                                #check
-###################################### config for NN #######################################
-
-####################################### config for unconstrained optim #######################################
+features = [50,50,50,50,1]
 LBFGS_maxiter = 100000000
-max_iter_train = 11                                                       #check
+max_iter_train = 11
 
 penalty_param_update_factor = 2
-init_penalty_param = 1                                                    #check
+init_penalty_param = 1
 panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
 
 init_penalty_param_mu = 10
@@ -117,20 +84,13 @@ LBFGS_gtol = 1e-9
 LBFGS_ftol = 1e-9
 
 init_mul = jnp.zeros(M)
-####################################### config for unconstrained optim #####################################
-
-####################################### visualization #######################################
 visual = Visualization(current_dir)
-####################################### visualization #######################################
-
-####################################### config for SQP #######################################
 sqp_maxiter = 100000000
 sqp_hessian = SR1()
 sqp_gtol = 1e-8
 sqp_xtol = 1e-8
 sqp_initial_constr_penalty = 0.05
 sqp_initial_tr_radius = 1
-####################################### config for SQP #######################################
 
 activation_input = "tanh"
 
@@ -170,11 +130,6 @@ pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sam
 color_bar_bounds = [eval_ui.min(), eval_ui.max()]
 params = model.init_params(NN_key_num=NN_key_num, data=data)
 
-
-print(np.sum((pde_sample_data[:, 0] > jnp.pi-0.2) & (pde_sample_data[:, 0] < jnp.pi+0.2) & (pde_sample_data[:, 1] <= 0.03)).item())
-print(np.sum((IC_sample_data[:, 0] > jnp.pi-0.2) & (IC_sample_data[:, 0] < jnp.pi+0.2)).item())
-print(np.sum((data[:, 0] > jnp.pi-0.2) & (data[:, 0] < jnp.pi+0.2)  & (data[:, 1] <= 0.03)).item())
-
 if Pre_Train:
     pretrain_path = "{current_dir}/pre_result/{test}/".format(\
                           test=test_now, current_dir=current_dir)
@@ -206,12 +161,7 @@ else:
     shapes, sizes = zip(*shapes_and_sizes)
     indices = jnp.cumsum(jnp.array(sizes)[:-1])
     _, treedef = flatten_params(params)
-
-
-    experiment_list = ['SQP_experiment']
-    # experiment_list = ['Augmented_Lag_experiment']
-    # experiment_list = ['l2^2_Penalty_experiment']
-    # experiment_list = ['Augmented_Lag_experiment','l2^2_Penalty_experiment']
+    experiment_list = ['Augmented_Lag_experiment','l2^2_Penalty_experiment', 'SQP_experiment']
 
     for experiment in experiment_list:
         print(experiment)
@@ -223,13 +173,10 @@ else:
         if experiment == "SQP_experiment":
           intermediate_data_frame_path = data_frame_path+"/intermediate_SQP_params/"
           check_path(intermediate_data_frame_path) 
-        #############
-        # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
         init_path = "params_505050_L2_{test}.csv".format(test=test_now)
         print(init_path)
-        params = pd.read_csv(init_path).values.flatten()      #check
-        params = unflatten_params(params, treedef)                          #check
-        #############
+        params = pd.read_csv(init_path).values.flatten()
+        params = unflatten_params(params, treedef)
         params_mul = {"params": params, "mul":init_mul}
         penalty_param = init_penalty_param
         penalty_param_v = init_penalty_param_v
@@ -259,48 +206,16 @@ else:
                 sqp_optim.evaluation(params)
 
         else:
-            if experiment == "l2^2_Penalty_experiment":                           # check
+            if experiment == "l2^2_Penalty_experiment":
                 loss = PINN(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                             N, nu, rho, alpha, system)
-            # elif experiment == "l1_Penalty_experiment":
-            #     loss = l1Penalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-            #                 N)
-            elif experiment == "l2_Penalty_experiment":
-                loss = l2Penalty(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                            N, nu, rho, alpha, system)
-            # elif experiment == "linfinity_Penalty_experiment":
-            #     loss = linfinityPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-            #                 N)
             elif experiment == "Augmented_Lag_experiment":
                 loss = AugLag(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                             N, nu, rho, alpha, system)
-            # elif experiment == "Pillo_Penalty_experiment":
-            #     loss = PilloPenalty(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-            #                 N, M)
-            # elif experiment == "New_Augmented_Lag_experiment":
-            #     loss = NewAugLag(model, data, pde_sample_data, IC_sample_data, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-            #                 N, M)
-            # elif experiment == "Fletcher_Penalty_experiment":
-            #     loss = FletcherPenalty(model, data, pde_sample_data, IC_sample_data, ui[0], beta, \
-            #                 N)
-            elif experiment == "Pillo_Aug_Lag_experiment":
-                loss = PilloAugLag(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
-                            N, nu, rho, alpha, system)
-            
             total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter, time_iter = [], [], [], [], [], []
             if experiment == "Augmented_Lag_experiment":
                 def callback_func(params):
                     total_loss_list.append(loss.loss(params, mul, penalty_param).item())
-                    total_l_k_loss_list.append(loss.l_k(params).item())
-                    total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                    u_theta = model.u_theta(params=params, data=eval_data)
-                    absolute_error_iter.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                    l2_relative_error_iter.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-                    time_iter.append(time.time() - start_time)
-            elif experiment == "Pillo_Aug_Lag_experiment":
-                def callback_func(params_mul):
-                    params = params_mul['params']
-                    total_loss_list.append(loss.loss(params_mul, penalty_param_mu, penalty_param_v).item())
                     total_l_k_loss_list.append(loss.l_k(params).item())
                     total_eq_cons_loss_list.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
                     u_theta = model.u_theta(params=params, data=eval_data)
@@ -337,27 +252,7 @@ else:
                     mul_new = mul + penalty_param * 2 * loss.eq_cons(params)
                     total_loss_list_pernalty_change.append(loss.loss(params, mul, penalty_param).item())
                 else:
-                  # penalty_param = penalty_param_update_factor * penalty_param
                   total_loss_list_pernalty_change.append(loss.loss(params, penalty_param).item())
-                  # total_l_k_loss_list_pernalty_change.append(loss.l_k(params).item())
-                  # total_eq_cons_loss_list_pernalty_change.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                  # u_theta = model.u_theta(params=params, data=eval_data)
-                  # absolute_error_pernalty_change.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                  # l2_relative_error_pernalty_change.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-
-                # if penalty_param <= panalty_param_upper_bound and experiment != "Pillo_Aug_Lag_experiment":
-                #     penalty_param = penalty_param_update_factor * penalty_param
-                #     total_loss_list_pernalty_change.append(loss.loss(params, penalty_param).item())
-                #     total_l_k_loss_list_pernalty_change.append(loss.l_k(params).item())
-                #     total_eq_cons_loss_list_pernalty_change.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                #     u_theta = model.u_theta(params=params, data=eval_data)
-                #     absolute_error_pernalty_change.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                #     l2_relative_error_pernalty_change.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-                # if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_mu <= panalty_param_upper_bound:
-                #     penalty_param_mu = penalty_param_update_factor * penalty_param_mu
-                # if experiment == "Pillo_Aug_Lag_experiment" and penalty_param_v >= 1/(2**20):
-                #     penalty_param_v = (1/penalty_param_update_factor) * penalty_param_v
-
                 params, params_mul, eq_cons = \
                     optim.update(params, penalty_param, experiment, \
                                         mul, params_mul, \
@@ -379,11 +274,6 @@ else:
 
                 print("Number of iterations:", str(len(total_loss_list)))
                 penalty_param_list.append(penalty_param)
-
-                # pd.DataFrame(flatten_params(params)[0], columns=['params']).\
-                # to_csv("{current_dir}/result/params_{experiment}_{test}.csv".format(experiment=experiment, \
-                #                                     test="beta_"+str(beta), current_dir=current_dir), index=False)                        #check
-
             absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
                                             params, eval_data, eval_ui[0])
             

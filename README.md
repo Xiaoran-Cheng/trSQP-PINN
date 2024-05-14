@@ -9,7 +9,7 @@ The following Python packages are required to run the code. Ensure you have Pyth
 
 ```bash
 pip install jax jaxopt flax
-
+```
 
 ## File Structure
 This section details the files included in the project and their specific roles:

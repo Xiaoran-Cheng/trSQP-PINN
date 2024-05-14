@@ -1,28 +1,32 @@
 # Physics-Informed Neural Networks with Trust-Region Sequential Quadratic Programming (trSQP-PINN)
-Xiaoran Cheng, Sen Na
+Authors: Xiaoran Cheng, Sen Na
 
-Physics-Informed Neural Networks (PINNs) are novel development in the field of Scientific Machine Learning, integrating physical domain knowledge into the learning process through a soft penalized loss function. We introduce a hard-constrained deep learning method, trust-region Sequential Quadratic Programming (trSQP-PINN), designed to overcome the failure modes of PINNs in solving partial differential equations (PDEs). Our comprehensive experiments demonstrate trSQP-PINN's superior performance compared to traditional PINNs and other hard-constrained methods such as penalty methods and augmented Lagrangian methods.
+## Overview
+Physics-Informed Neural Networks (PINNs) represent a cutting-edge advancement in Scientific Machine Learning, seamlessly integrating physical domain knowledge via a soft penalized loss function. We introduce a novel approach, the Trust-Region Sequential Quadratic Programming for PINNs (trSQP-PINN), which addresses the limitations of conventional PINNs in solving Partial Differential Equations (PDEs). Our method enforces hard constraints in the learning process, significantly enhancing model performance. Through extensive testing, trSQP-PINN demonstrates superior capabilities compared to both standard PINNs and other hard-constrained approaches like penalty and augmented Lagrangian methods.
 
+## Installation
+The following Python packages are required to run the code. Ensure you have Python version 3.10.12 installed and then execute the commands below to install necessary libraries:
 
-## Setup
-All our code is implemented in Python (ver 3.10.12). Install the enssential packages needed for the code, using
 ```bash
-pip install jax
-pip install jaxopt
-pip install flax
-```
+pip install jax jaxopt flax
 
-## File functions
-Data.py: generating labeled and unlabeled data for pretraning and traning.
-NN.py: construct the neural network
-System.py: define the PDEs, initial conditions and solutions
-Visualization.py: drawing solution heatmaps and error graphs
-optim_PINN.py: define loss for PINNs and penalty methods
-optim_aug_lag.py: define loss for augmented Lagrangian methods
-optim_sqp.py: define loss and optimization for trSQP-PINN
-uncons_opt.py: optimization process for PINNs, penalty and augmented Lagrangian methods
-pre_train.py: define loss and optimization for pretraning phase
-main.py: define problem and algorithm tuning parameters and main excution file
+
+## File Structure
+This section details the files included in the project and their specific roles:
+
+- **Data.py**: Responsible for generating both labeled and unlabeled data sets used during the pre-training and training phases.
+- **NN.py**: Defines the neural network architecture, setting up the layers and parameters that will model the physical phenomena.
+- **System.py**: Contains definitions for the partial differential equations (PDEs), initial conditions, and analytic solutions that guide the training process.
+- **Visualization.py**: Provides functionality for visualizing the results through solution heatmaps and error graphs, which are crucial for assessing model performance.
+- **optim_PINN.py**: Implements the loss functions for standard Physics-Informed Neural Networks and penalty methods, essential for training the models.
+- **optim_aug_lag.py**: Specifies the loss functions for the augmented Lagrangian methods, which help in handling constraints more effectively.
+- **optim_sqp.py**: Manages the loss functions and the optimization process specific to the trSQP-PINN approach, focusing on enforcing hard constraints.
+- **uncons_opt.py**: Oversees the general optimization processes for models using PINNs, penalty methods, and augmented Lagrangian techniques.
+- **pre_train.py**: Sets up the loss functions and optimization for the pre-training phase, preparing the neural network for more detailed training.
+- **main.py**: Central executable file that configures the problem parameters, tunes the algorithms, and launches the main experiments.
+
+Each file is designed to handle specific aspects of the computational process, ensuring that the project is modular and maintainable.
+
 
 ## Usage
 To run experiments for transport equations using trSQP-PINN, modify the "system" parameter in `main.py` as needed. Execute the following command to start the experiments:

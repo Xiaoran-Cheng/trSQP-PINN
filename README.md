@@ -14,16 +14,16 @@ pip install jax jaxopt flax
 ## File Structure
 This section details the files included in the project and their specific roles:
 
-- **Data.py**: Responsible for generating both labeled and unlabeled data sets used during the pre-training and training phases.
+- **Data.py**: Responsible for generating both labeled and unlabeled data sets used during the pretraining and training phases.
 - **NN.py**: Defines the neural network architecture, setting up the layers and parameters that will model the physical phenomena.
-- **System.py**: Contains definitions for the partial differential equations (PDEs), initial conditions, and analytic solutions that guide the training process.
+- **System.py**: Contains definitions for the PDEs, initial conditions, and analytic solutions that guide the training process.
 - **Visualization.py**: Provides functionality for visualizing the results through solution heatmaps and error graphs, which are crucial for assessing model performance.
-- **optim_PINN.py**: Implements the loss functions for standard Physics-Informed Neural Networks and penalty methods, essential for training the models.
-- **optim_aug_lag.py**: Specifies the loss functions for the augmented Lagrangian methods, which help in handling constraints more effectively.
-- **optim_sqp.py**: Manages the loss functions and the optimization process specific to the trSQP-PINN approach, focusing on enforcing hard constraints.
-- **uncons_opt.py**: Oversees the general optimization processes for models using PINNs, penalty methods, and augmented Lagrangian techniques.
-- **pre_train.py**: Sets up the loss functions and optimization for the pre-training phase, preparing the neural network for more detailed training.
-- **main.py**: Central executable file that configures the problem parameters, tunes the algorithms, and launches the main experiments.
+- **optim_PINN.py**: Implements the loss functions for standard PINNs and penalty methods, essential for training the models.
+- **optim_aug_lag.py**: Specifies the loss functions for the augmented Lagrangian methods.
+- **optim_sqp.py**: Manages the loss functions and the optimization process specific to the trSQP-PINN approach.
+- **uncons_opt.py**: Manages the general optimization processes for PINNs, penalty methods, and augmented Lagrangian methods.
+- **pre_train.py**: Sets up the loss functions and optimization for the pretraining phase, preparing the neural network for more detailed training.
+- **main.py**: Central executable file that configures the problem-specific parameters and algorithm tuning parameters, and launches the main experiments.
 
 Each file is designed to handle specific aspects of the computational process, ensuring that the project is modular and maintainable.
 

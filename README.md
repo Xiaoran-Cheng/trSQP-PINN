@@ -1,5 +1,5 @@
 # Physics-Informed Neural Networks with Trust-Region Sequential Quadratic Programming (trSQP-PINN)
-Authors: Xiaoran Cheng, Sen Na
+
 
 ## Overview
 Physics-Informed Neural Networks (PINNs) represent a cutting-edge advancement in Scientific Machine Learning, integrating physical domain knowledge via a soft penalized loss function. We introduce a novel approach, the **Trust-Region Sequential Quadratic Programming** for PINNs, called **trSQP-PINN**, which addresses the limitations of conventional PINNs in solving Partial Differential Equations (PDEs). Our method enforces hard constraints in the learning process, significantly enhancing model performance. Through extensive experiments, trSQP-PINN demonstrates superior performance compared to standard PINNs and other hard-constrained approaches like penalty and augmented Lagrangian methods applied to PINNs.

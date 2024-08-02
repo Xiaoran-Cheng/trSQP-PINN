@@ -14,7 +14,7 @@ import jax
 
 
 class PreTrain:
-    def __init__(self, model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui, pretrain_gtol, pretrain_ftol, num_params, nu, rho, alpha, system):
+    def __init__(self, model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui, pretrain_gtol, pretrain_ftol, num_params, params, nu, rho, alpha, system):
         self.model = model
         self.beta = beta
         self.pde_sample_data = pde_sample_data
@@ -35,6 +35,11 @@ class PreTrain:
         self.system = system
         self.stop_optimization = False
         self.params_list = [np.zeros(num_params)]
+        # self.kkt_diff_list = [0]
+
+        shapes_and_sizes = [(p.shape, p.size) for p in jax.tree_util.tree_leaves(params)]
+        self.shapes, self.sizes = zip(*shapes_and_sizes)
+        self.indices = jnp.cumsum(jnp.array(self.sizes)[:-1])
 
 
     def l_k(self, params):
@@ -99,6 +104,12 @@ class PreTrain:
     def flatten_params(self, params):
         flat_params_list, treedef = jax.tree_util.tree_flatten(params)
         return np.concatenate([param.ravel() for param in flat_params_list], axis=0), treedef
+    
+
+    def unflatten_params(self, param_list, treedef):
+        param_groups = jnp.split(param_list, self.indices)
+        reshaped_params = [group.reshape(shape) for group, shape in zip(param_groups, self.shapes)]
+        return jax.tree_util.tree_unflatten(treedef, reshaped_params)
 
 
     def callback_func(self, params):
@@ -106,14 +117,23 @@ class PreTrain:
         u_theta = self.model.u_theta(params=params, data=self.eval_data)
         self.absolute_error_pretrain_list.append(jnp.mean(np.abs(u_theta-self.eval_ui)))
         self.l2_relative_error_pretrain_list.append(jnp.linalg.norm((u_theta-self.eval_ui), ord = 2) / jnp.linalg.norm((self.eval_ui), ord = 2))
-        list_params, _ = self.flatten_params(params)
+        list_params, treedef = self.flatten_params(params)
+
+
         self.params_list.append(list_params)
         params_diff = self.params_list[-1] - self.params_list[-2]
+        
+
+        loss_gradient1, _ = self.flatten_params(jacfwd(self.loss, 0)(params))
+        loss_gradient, _ = self.flatten_params(jacfwd(self.loss, 0)(self.unflatten_params(self.params_list[-2], treedef)))
+
         self.params_list.pop(0)
 
+        loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
 
-        loss_gradient, _ = self.flatten_params(jacfwd(self.loss, 0)(params))
-        if jnp.linalg.norm(loss_gradient, ord=2) <= self.pretrain_gtol or jnp.linalg.norm(params_diff, ord=2) <= self.pretrain_ftol:
+        print(loss_gradient_diff, jnp.linalg.norm(params_diff, ord=2))
+
+        if loss_gradient_diff <= self.pretrain_gtol or jnp.linalg.norm(params_diff, ord=2) <= self.pretrain_ftol:
             self.stop_optimization = True
             raise TerminationCondition("Stopping criterion met")
 

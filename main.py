@@ -68,9 +68,9 @@ class TerminationCondition(Exception):
 
 #######################################config for pre_train######################################
 Pre_Train = True                                                    #check                                                       #check
-pretrain_maxiter = 20000
-pretrain_gtol = 1e-9
-pretrain_ftol = 1e-9
+pretrain_maxiter = 1000000
+pretrain_gtol = 1e-4
+pretrain_ftol = 1e-4
 ######################################config for pre_train#######################################
 
 #######################################config for data#######################################
@@ -84,8 +84,8 @@ alpha = 10
 xgrid = 256
 nt = 100
 N = 1000
-# IC_M, pde_M, BC_M = 50,50,50                            #check
-IC_M, pde_M, BC_M = 3,3,3
+IC_M, pde_M, BC_M = 5,5,5                            #check
+# IC_M, pde_M, BC_M = 3,3,3
 M = IC_M + pde_M + BC_M
 data_key_num, sample_key_num = 100,1234
 # data_key_num, sample_key_num = 1000,1234
@@ -102,7 +102,6 @@ system = "convection"                                            #check
 NN_key_num = 345
 # NN_key_num = 7654
 features = [50,50,50,50,1]  
-# features = [10,10,1]                                            #check
 num_params = calculate_mlp_params(features[:-1])
 ###################################### config for NN #######################################
 
@@ -114,11 +113,8 @@ penalty_param_update_factor = 2
 init_penalty_param = 1                                                    #check
 panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
 
-init_penalty_param_mu = 10
-init_penalty_param_v = 10**-2
-
-LBFGS_gtol = pretrain_gtol
-LBFGS_ftol = pretrain_ftol
+LBFGS_gtol = 1e-4
+LBFGS_ftol = 1e-4
 
 init_mul = jnp.zeros(M)
 ####################################### config for unconstrained optim #####################################
@@ -128,10 +124,12 @@ visual = Visualization(current_dir)
 ####################################### visualization #######################################
 
 ####################################### config for SQP #######################################
-sqp_maxiter = 10
-sqp_hessian = SR1()
-sqp_gtol = 1e-8
-sqp_xtol = 1e-8
+x_diff_tol = 1e-4
+kkt_tol = 1e-4
+B0 = jnp.identity(num_params)
+sqp_maxiter = 100000
+L_m = 10
+hessian_method = "dBFGS"
 sqp_initial_constr_penalty = 0.5
 sqp_initial_tr_radius = 1
 ####################################### config for SQP #######################################
@@ -183,7 +181,7 @@ if Pre_Train:
 
     pretrain_path = "{current_dir}/pre_result/{test}/".format(\
                         test=test_now, current_dir=current_dir)
-    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], pretrain_gtol, pretrain_ftol, num_params, nu, rho, alpha, system)
+    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], pretrain_gtol, pretrain_ftol, num_params, params, nu, rho, alpha, system)
     _ = pretrain.update(params, pretrain_maxiter)
     params = unflatten_params(pretrain.params_list[-1], treedef)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
@@ -209,9 +207,9 @@ if Pre_Train:
     print(f"Execution Time: {(end_time - full_start_time)/60} minutes")
 
 else:
-    # experiment_list = ['SQP_experiment']
+    experiment_list = ['SQP_experiment']
     # experiment_list = ['l2^2_Penalty_experiment','Augmented_Lag_experiment']
-    experiment_list = ['l2^2_Penalty_experiment']
+    # experiment_list = ['Augmented_Lag_experiment']
 
     for experiment in experiment_list:
         print(experiment)
@@ -235,14 +233,6 @@ else:
         mul = init_mul
 
         if experiment == "SQP_experiment":
-            x_diff_tol = 0.001
-            kkt_tol = 0.5
-            B0 = jnp.identity(num_params)
-            maxiter = 2000
-            L_m = 5
-            hessian_method = "dBFGS"
-            # reproduce_data_key = 100
-            # random_data_keys = jax.random.randint(jax.random.PRNGKey(reproduce_data_key), (maxiter,), 1, 1000000001)
             sqp_optim = SQP_Optim(model, params, beta, eval_data, eval_ui, nu, rho, alpha, system, intermediate_data_frame_path)
             x0 = flatten_params(params)[0]
             grad0 = sqp_optim.grad_objective(x0, treedef, data, ui)
@@ -255,7 +245,7 @@ else:
                                 sqp_initial_constr_penalty,
                                 sqp_initial_tr_radius,
                                 treedef, Datas, N, data_key_num, sample_key_num, X_star, eval_ui, \
-                                maxiter, x_diff_tol, kkt_tol, hessian_method, L_m, data, ui)
+                                sqp_maxiter, x_diff_tol, kkt_tol, hessian_method, L_m, data, ui)
             
             params = unflatten_params(params_list, treedef)
             
@@ -293,10 +283,14 @@ else:
                     list_params, _ = flatten_params(params)
                     params_list.append(list_params)
                     params_diff = params_list[-1] - params_list[-2]
-                    params_list.pop(0)
 
-                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(params, mul, penalty_param))
-                    if jnp.linalg.norm(loss_gradient, ord=2) <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+
+                    loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, mul, penalty_param))
+                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), mul, penalty_param))
+                    params_list.pop(0)
+                    loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
+
+                    if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
                         optim.stop_optimization = True
                         raise Exception("Stopping criterion met")
         
@@ -315,11 +309,16 @@ else:
                     list_params, _ = flatten_params(params)
                     params_list.append(list_params)
                     params_diff = params_list[-1] - params_list[-2]
+
+
+                    loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, penalty_param))
+                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), penalty_param))
                     params_list.pop(0)
+                    loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
 
+                    print(loss_gradient_diff, jnp.linalg.norm(params_diff, ord=2))
 
-                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(params, penalty_param))
-                    if jnp.linalg.norm(loss_gradient, ord=2) <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+                    if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
                         optim.stop_optimization = True
                         raise TerminationCondition("Stopping criterion met")
                         
@@ -342,7 +341,7 @@ else:
             for _ in tqdm(range(max_iter_train)):
                 if experiment == "Augmented_Lag_experiment":
                     print(mul)
-                    mul_new = mul + penalty_param * 2 * loss.eq_cons(params)
+                    mul_new = mul + penalty_param * loss.eq_cons(params)
                     # total_loss_list_pernalty_change.append(loss.loss(params, mul, penalty_param).item())
                 # else:
                     # total_loss_list_pernalty_change.append(loss.loss(params, penalty_param).item())

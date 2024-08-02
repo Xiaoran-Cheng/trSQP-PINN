@@ -153,13 +153,13 @@ class SQP_Optim:
             # jacfwd(self.L, 1)(param_list, mul, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
 
     
-    # def SR1(self, xk, xk1, Bk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data):
-    def SR1(self, sk, yk, Bk):
-        # sk = xk1 - xk
-        # sk = sk.reshape(-1, 1)
-        # yk = jacfwd(self.L, 0)(xk1, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data) \
-        #     - jacfwd(self.L, 0)(xk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
-        # yk = yk.reshape(-1, 1)
+    def SR1(self, xk, xk1, Bk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data):
+    # def SR1(self, sk, yk, Bk):
+        sk = xk1 - xk
+        sk = sk.reshape(-1, 1)
+        yk = jacfwd(self.L, 0)(xk1, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data) \
+            - jacfwd(self.L, 0)(xk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+        yk = yk.reshape(-1, 1)
         c1 = yk - Bk @ sk
         up = c1 @ c1.T
         do = c1.T @ sk
@@ -167,13 +167,13 @@ class SQP_Optim:
         return Bk1
 
 
-    # def dBFGS(self, xk, xk1, Bk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data):
-    def dBFGS(self, sk, yk, Bk):
-        # sk = xk1 - xk
-        # sk = sk.reshape(-1, 1)
-        # yk = jacfwd(self.L, 0)(xk1, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data) \
-        #     - jacfwd(self.L, 0)(xk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
-        # yk = yk.reshape(-1, 1)
+    def dBFGS(self, xk, xk1, Bk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data):
+    # def dBFGS(self, sk, yk, Bk):
+        sk = xk1 - xk
+        sk = sk.reshape(-1, 1)
+        yk = jacfwd(self.L, 0)(xk1, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data) \
+            - jacfwd(self.L, 0)(xk, mulk1, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+        yk = yk.reshape(-1, 1)
         syk = sk.T @ yk
         sBsk = sk.T @ Bk @ sk
         thetak = 1 if syk >= 0.2 * sBsk else jnp.divide(0.8 * sBsk, sBsk - syk)
@@ -325,22 +325,21 @@ class SQP_Optim:
 
             # if reduction_ratio < SUFFICIENT_REDUCTION_RATIO and \
             # norm(dn) <= SOC_THRESHOLD * norm(dt):
-            if reduction_ratio < SUFFICIENT_REDUCTION_RATIO:
 
-                y = -Y.dot(b_next)
+            #     y = -Y.dot(b_next)
 
-                x_soc = x + S.dot(d + y)
-                f_soc, b_soc = self.obj(x_soc, treedef, data, ui), self.eq_cons(x_soc, treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+            #     x_soc = x + S.dot(d + y)
+            #     f_soc, b_soc = self.obj(x_soc, treedef, data, ui), self.eq_cons(x_soc, treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
 
-                merit_function_soc = f_soc + penalty*norm(b_soc)
-                actual_reduction_soc = merit_function - merit_function_soc
+            #     merit_function_soc = f_soc + penalty*norm(b_soc)
+            #     actual_reduction_soc = merit_function - merit_function_soc
 
-                reduction_ratio_soc = actual_reduction_soc / predicted_reduction
-                if reduction_ratio_soc >= SUFFICIENT_REDUCTION_RATIO:
-                    x_next = x_soc
-                    f_next = f_soc
-                    b_next = b_soc
-                    reduction_ratio = reduction_ratio_soc
+            #     reduction_ratio_soc = actual_reduction_soc / predicted_reduction
+            #     if reduction_ratio_soc >= SUFFICIENT_REDUCTION_RATIO:
+            #         x_next = x_soc
+            #         f_next = f_soc
+            #         b_next = b_soc
+            #         reduction_ratio = reduction_ratio_soc
             
 
             if reduction_ratio >= LARGE_REDUCTION_RATIO:
@@ -350,16 +349,16 @@ class SQP_Optim:
                 trust_radius = max(TRUST_ENLARGEMENT_FACTOR_S * norm(d),
                                 trust_radius)
             elif reduction_ratio < SUFFICIENT_REDUCTION_RATIO:
-                trust_radius = trust_radius * 0.25
-                # trust_reduction = ((1-SUFFICIENT_REDUCTION_RATIO) /
-                #                 (1-reduction_ratio))
-                # new_trust_radius = trust_reduction * norm(d)
-                # if new_trust_radius >= MAX_TRUST_REDUCTION * trust_radius:
-                #     trust_radius *= MAX_TRUST_REDUCTION
-                # elif new_trust_radius >= MIN_TRUST_REDUCTION * trust_radius:
-                #     trust_radius = new_trust_radius
-                # else:
-                #     trust_radius *= MIN_TRUST_REDUCTION
+                # trust_radius = trust_radius * 0.25
+                trust_reduction = ((1-SUFFICIENT_REDUCTION_RATIO) /
+                                (1-reduction_ratio))
+                new_trust_radius = trust_reduction * norm(d)
+                if new_trust_radius >= MAX_TRUST_REDUCTION * trust_radius:
+                    trust_radius *= MAX_TRUST_REDUCTION
+                elif new_trust_radius >= MIN_TRUST_REDUCTION * trust_radius:
+                    trust_radius = new_trust_radius
+                else:
+                    trust_radius *= MIN_TRUST_REDUCTION
 
             # if reduction_ratio >= 0.9:
             #     trust_radius = 7 * trust_radius
@@ -395,32 +394,40 @@ class SQP_Optim:
             gradient_L1 = self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
                                         BC_sample_data_2pi, pde_sample_data)[0]
             kkt1 = jnp.linalg.norm(gradient_L1, ord=2)
-            self.kkt_residual.append(kkt)
+            self.kkt_residual.append(kkt1)
             self.time_iter.append(time.time() - start_time)
             # x_diff = jnp.linalg.norm(x - prev_x, ord=2) / jnp.max(jnp.array([jnp.linalg.norm(x, ord=2), jnp.linalg.norm(prev_x, ord=2), 1]))
             kkt_diff = jnp.absolute(kkt1 - kkt)
             x_diff = jnp.linalg.norm(x - prev_x, ord=2)
 
             # if last_iteration_failed == False:
-            x_diff_list.append(x_diff.item())
-            if len(x_diff_list) >= 10:
-              print("x diff average: {x}".format(x = jnp.array(x_diff_list).mean()))
-              if jnp.array(x_diff_list).mean() <= x_diff_tol:
-                  break
-              else:
-                x_diff_list = x_diff_list[1:]
+            # x_diff_list.append(x_diff.item())
+            # if len(x_diff_list) >= 10:
+            #   print("x diff average: {x}".format(x = jnp.array(x_diff_list).mean()))
+            #   if jnp.array(x_diff_list).mean() <= x_diff_tol:
+            #       break
+            #   else:
+            #     x_diff_list = x_diff_list[1:]
 
-            kkt_list.append(kkt_diff.item())
-            if len(kkt_list) >= 10:
-              print("kkt diff average: {x}".format(x = jnp.array(kkt_list).mean()))
-              if jnp.array(kkt_list).mean() <= kkt_tol:
-                  break
-              else:
-                kkt_list = kkt_list[1:]
+            # kkt_list.append(kkt_diff.item())
+            # if len(kkt_list) >= 10:
+            #   print("kkt diff average: {x}".format(x = jnp.array(kkt_list).mean()))
+            #   if jnp.array(kkt_list).mean() <= kkt_tol:
+            #       break
+            #   else:
+            #     kkt_list = kkt_list[1:]
+            if last_iteration_failed == False:
+                if x_diff <= x_diff_tol or kkt_diff <= kkt_tol:
+                    break
 
 
             self.kkt_diff.append(kkt_diff)
             self.x_diff.append(x_diff.item())
+
+            f, b = self.obj(x, treedef, data, ui), self.eq_cons(x, treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+            c, A = self.grad_objective(x, treedef, data, ui), self.grads_eq_cons(x,treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+            Z, LS, Y = projections(A)
+            v = -LS.dot(c)
 
 
             if iter % 1 == 0:
@@ -430,22 +437,15 @@ class SQP_Optim:
                 print("obj value: ", str(f))
                 print("eq_cons value: ", str(jnp.linalg.norm(b, ord = 2)))
                 print("x_diff: ", str(x_diff))
-                print("kkt residual: ", str(kkt))
+                print("kkt residual: ", str(kkt1))
                 print("penalty: ", str(penalty))
                 print("reduction ratio", str(reduction_ratio))
                 print("absolute_error: " + str(absolute_error))
                 print("l2_relative_error: " + str(l2_relative_error))
                 df_param = pd.DataFrame(x, columns=['params'])
                 df_param.to_pickle(self.intermediate_data_frame_path+"SQP_params.pkl")
-            
-
 
             # data, ui = jnp.copy(new_data), jnp.copy(new_ui)
-
-            f, b = self.obj(x, treedef, data, ui), self.eq_cons(x, treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
-            c, A = self.grad_objective(x, treedef, data, ui), self.grads_eq_cons(x,treedef, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
-            Z, LS, Y = projections(A)
-            v = -LS.dot(c)
 
             if hessian_method == "LBFGS" or hessian_method == "LSR1":
                 if hessain_counter <= L_m:
@@ -469,41 +469,46 @@ class SQP_Optim:
                     H = self.Limited_hessian(L_m, S_k, Y_k, B0, hessian_method)
                     hessain_counter += 1
             elif hessian_method == "dBFGS":
-                if gradient_average_counter % L_m != 0 or gradient_average_counter == 0:
-                    print("averaging")
-                    S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
-                    Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
-                else:
-                    print("hessian producing")
-                    S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
-                    Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
+                # if gradient_average_counter % L_m != 0 or gradient_average_counter == 0:
+                #     print("averaging")
+                #     S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
+                #     Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
+                # else:
+                #     print("hessian producing")
+                #     S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
+                #     Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
 
-                    H = self.dBFGS(S_k.mean(axis=1).reshape(-1, 1), Y_k.mean(axis=1).reshape(-1, 1), H)
-                    S_k = jnp.empty((n, 0))
-                    Y_k = jnp.empty((n, 0))
-                gradient_average_counter += 1
+                #     H = self.dBFGS(S_k.mean(axis=1).reshape(-1, 1), Y_k.mean(axis=1).reshape(-1, 1), H)
+                #     S_k = jnp.empty((n, 0))
+                #     Y_k = jnp.empty((n, 0))
+                # gradient_average_counter += 1
+
+                self.dBFGS(prev_x, x, H, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
                 
             elif hessian_method == "SR1":
-                if gradient_average_counter % L_m != 0 or gradient_average_counter == 0:
-                    print("averaging")
-                    S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
-                    Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
-                else:
-                    print("hessian producing")
-                    S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
-                    Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
-                                        BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
-                    H = self.SR1(S_k.mean(axis=1).reshape(-1, 1), Y_k.mean(axis=1).reshape(-1, 1), H)
-                    S_k = jnp.empty((n, 0))
-                    Y_k = jnp.empty((n, 0))
-                gradient_average_counter += 1
+                # if gradient_average_counter % L_m != 0 or gradient_average_counter == 0:
+                #     print("averaging")
+                #     S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
+                #     Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
+                # else:
+                #     print("hessian producing")
+                #     S_k = jnp.hstack([S_k, jnp.array(x-prev_x).reshape(n,1)])
+                #     Y_k = jnp.hstack([Y_k, jnp.array(self.gradient_L(x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0] - self.gradient_L(prev_x, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, \
+                #                         BC_sample_data_2pi, pde_sample_data)[0]).reshape(n,1)])
+                #     H = self.SR1(S_k.mean(axis=1).reshape(-1, 1), Y_k.mean(axis=1).reshape(-1, 1), H)
+                #     S_k = jnp.empty((n, 0))
+                #     Y_k = jnp.empty((n, 0))
+                # gradient_average_counter += 1
+
+                self.dBFGS(prev_x, x, H, v, treedef, data, ui, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, pde_sample_data)
+
             elif hessian_method == None:
                 pass
         return x

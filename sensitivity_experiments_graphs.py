@@ -1,3 +1,5 @@
+''' This python file is for generate sensitivity experiments error plots, as well as varaying PDE coefficient error plots'''
+
 import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +16,7 @@ def check_path(folder_path):
 check_path(current_dir+"/"+f"Figures/Errors/")
 check_path(current_dir+"/"+f"Figures/robustness_experiment/")
 check_path(current_dir+"/"+f"Figures/Heatmaps/")
+
 
 # problems = ['transport','reaction','reaction_diffusion_alpha','reaction_diffusion_tau']
 # experiments = ['coef_experiment']

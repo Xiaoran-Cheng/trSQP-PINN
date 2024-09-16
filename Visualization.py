@@ -12,6 +12,7 @@ class Visualization:
 
 
     def heatmap(self, data, sol, test, types, experiment, nt, xgrid, color_bar_bounds, figure_type="None", pretrain=False, title=None):
+        ''' Generate heatmaps for solution and predicted solutions of PDEs '''
         color_bar_lower_bound, color_bar_upper_bound = color_bar_bounds
         x = data[:, 0]
         t = data[:, 1]
@@ -48,6 +49,7 @@ class Visualization:
 
 
     def line_graph(self, ls, test, types, experiment, x=None, pretrain=False):
+        ''' Generate corresponding line graphs for optimization information '''
         plt.figure()
         if x is None:
             plt.plot(ls)

@@ -5,6 +5,7 @@ import numpy as np
 
 
 class Transport_eq:
+    
     def __init__(self, beta:float) -> None:
         self.beta = beta
 
@@ -20,6 +21,7 @@ class Transport_eq:
     
 
 class Reaction_Diffusion:
+    ''' Define IC, PDE and solution of reaction-diffusion equation '''
     def __init__(self, nu, rho) -> None:
         self.nu = nu
         self.rho = rho
@@ -30,14 +32,14 @@ class Reaction_Diffusion:
     
 
     def u0(self, x):
-        # x0 = jnp.pi
-        # sigma = 0.1
+        ''' IC condition '''
         x0 = jnp.pi
         sigma = 0.5
         return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
 
 
     def reaction(self, u, dt):
+        ''' Use reaction component for iteratively get diffusion term solution'''
         factor_1 = u * jnp.exp(self.rho * dt)
         factor_2 = (1 - u)
         u = factor_1 / (factor_2 + factor_1)
@@ -45,6 +47,7 @@ class Reaction_Diffusion:
 
 
     def diffusion(self, u, dt, IKX2):
+        ''' get diffusion term solution '''
         factor = jnp.exp(self.nu * IKX2 * dt)
         u_hat = jnp.fft.fft(u)
         u_hat *= factor
@@ -77,6 +80,7 @@ class Reaction_Diffusion:
 
 
 class Reaction:
+    ''' Define IC, PDE and solution of reaction equation '''
     def __init__(self, rho) -> None:
         self.rho = rho
 
@@ -97,31 +101,3 @@ class Reaction:
         return factor_1 / (factor_2 + factor_1)
     
 
-    
-
-
-class Burger:
-    def __init__(self, alpha):
-        self.alpha = alpha
-
-    def pde(self, dudt, dudx, du2dx2, u):
-        return dudt + u * dudx - self.alpha * du2dx2
-
-    def u0(self, x):
-        x0 = jnp.pi
-        sigma = 0.5
-        return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
-
-    def Burgers_fft(self, u, t, kappa):
-        uhat = np.fft.fft(u)
-        d_uhat = (1j) * kappa * uhat
-        dd_uhat = -jnp.power(kappa, 2) * uhat
-        d_u = np.fft.ifft(d_uhat)
-        dd_u = np.fft.ifft(dd_uhat)
-        du_dt = -u * d_u + self.alpha * dd_u
-        return du_dt.real
-
-    def solution(self, kappa, x, t):
-        u0 = self.u0(x)
-        return odeint(self.Burgers_fft, u0, t, args=(kappa,)).flatten()
-    

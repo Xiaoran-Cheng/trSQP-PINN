@@ -5,12 +5,14 @@ sys.path.append(parent_dir)
 
 from jax import numpy as jnp
 import numpy as np
-from jaxopt.tree_util import tree_l2_norm, tree_zeros_like, tree_add, tree_scalar_mul, tree_add_scalar_mul
+from jaxopt.tree_util import tree_l2_norm, tree_zeros_like, tree_add_scalar_mul
 from tqdm import tqdm
 import jaxopt
 import time
 
+
 class Optim:
+    ''' Construct the LBFGS optimizaer for penalty and ALM '''
     def __init__(self, model, Loss, LBFGS_maxiter, LBFGS_gtol, LBFGS_ftol, total_l_k_loss_list, \
                  total_eq_cons_loss_list, absolute_error_iter, l2_relative_error_iter, total_loss_list, time_iter, data, ui) -> None:
         self.model = model
@@ -29,27 +31,17 @@ class Optim:
         self.stop_optimization = False
 
 
-    # def adam_update(self, opt, grads, optim_object):
-    #     opt_state = opt.init(optim_object)
-    #     grads, opt_state = opt.update(grads, opt_state)
-    #     optim_object = optax.apply_updates(optim_object, grads)
-    #     return optim_object
-
-
     def update(self, params, \
                     penalty_param, experiment, \
                     mul, LBFGS_opt):
-    
+        ''' Run the LBFGS optimization for penalty and ALM '''
         if experiment == "ALM":
             params, _ = LBFGS_opt.run(params, penalty_param=penalty_param, mul=mul)
         else:
             params, _ = LBFGS_opt.run(params, penalty_param=penalty_param)
-
-        print(Exception) # if hits defualt stopping condition, it displays only <class 'Exception'>
-
+        print(Exception)
         return params, self.Loss.eq_cons(params)
     
-
 
     def lbfgs(self, params, \
                     penalty_param, \

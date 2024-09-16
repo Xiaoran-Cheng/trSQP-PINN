@@ -3,7 +3,7 @@ import os
 parent_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
 sys.path.append(parent_dir)
 
-from System import Transport_eq, Reaction_Diffusion, Reaction, Burger
+from System import Transport_eq, Reaction_Diffusion, Reaction
 
 from jax import numpy as jnp
 from jax import jacfwd, hessian
@@ -42,8 +42,6 @@ class PINN:
             return self.IC_sample_data_sol - u_theta
         elif self.system == "reaction":
             return Reaction(self.rho).u0(self.IC_sample_data[:,0]) - u_theta
-        elif self.system == "burger":
-            return Burger(self.alpha).u0(self.IC_sample_data[:,0]) - u_theta
     
     
     def BC_cons(self, params):
@@ -69,16 +67,7 @@ class PINN:
             grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
             dudt = jnp.diag(grad_x[:,:,1])
             return Reaction(self.rho).pde(dudt, u_theta)
-        elif self.system == "burger":
-            u_theta = self.model.u_theta(params=params, data=self.pde_sample_data)
-            grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
-            dudt = jnp.diag(grad_x[:,:,1])
-            dudx = jnp.diag(grad_x[:,:,0])
-            grad_xx = hessian(self.model.u_theta, 1)(params, self.pde_sample_data)
-            du2dx2 = jnp.diag(jnp.diagonal(grad_xx[:, :, 0, :, 0], axis1=1, axis2=2))
-            return Burger(self.alpha).pde(dudt, dudx, du2dx2, u_theta)
 
-    
 
     def eq_cons(self, params):
         return jnp.concatenate([self.IC_cons(params), self.BC_cons(params), self.pde_cons(params)])

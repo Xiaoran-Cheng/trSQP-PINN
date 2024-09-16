@@ -22,6 +22,9 @@ This section details the files included in the project and their specific roles:
 - **optim_aug_lag.py**: Specifies the loss functions for the augmented Lagrangian methods.
 - **optim_sqp.py**: Manages the loss functions and the optimization process specific to the trSQP-PINN approach.
 - **uncons_opt.py**: Manages the general optimization processes for PINNs, penalty methods, and augmented Lagrangian methods.
+- **projected_cg.py**: Responsible for performing projected conjugate gradient method. 
+- **projection_methods.py**: Helps with defining projection method for projecting gradients onto the constrained space.
+- **sensitivity_experiments_graphs.py**: Draw the sensitivity experiments error plots.
 - **pre_train.py**: Sets up the loss functions and optimization for the pretraining phase, preparing the neural network for more detailed training.
 - **main.py**: Central executable file that configures the problem-specific parameters and algorithm tuning parameters, and launches the main experiments.
 

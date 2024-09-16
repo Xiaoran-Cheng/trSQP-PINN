@@ -139,12 +139,12 @@ class Data:
         self.alpha = alpha
 
     def generate_data(self, N, key_num, X_star, eval_ui):
-        if self.system == "convection":
-            # X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(N,), a=len(X_star), replace=False),:]
-            # xi = X_star[:,0].reshape(1,N)
-            # ti = X_star[:,1].reshape(1,N)
-            xi = random.uniform(random.PRNGKey(key_num), shape=(1,N), minval=self.x_min, maxval=self.x_max)
-            ti = random.uniform(random.PRNGKey(key_num+1), shape=(1,N), minval=self.t_min, maxval=self.t_max)
+        if self.system == "transport":
+            X_star = X_star[random.choice(random.PRNGKey(key_num), shape=(N,), a=len(X_star), replace=False),:]
+            xi = X_star[:,0].reshape(1,N)
+            ti = X_star[:,1].reshape(1,N)
+            # xi = random.uniform(random.PRNGKey(key_num), shape=(1,N), minval=self.x_min, maxval=self.x_max)
+            # ti = random.uniform(random.PRNGKey(key_num+1), shape=(1,N), minval=self.t_min, maxval=self.t_max)
             
             ui = Transport_eq(beta=self.beta).solution(xi, ti) + random.uniform(random.PRNGKey(key_num), \
                                                     shape=(1,N), minval=-self.noise_level, maxval=self.noise_level)
@@ -204,11 +204,15 @@ class Data:
         IC_sample_data_sol = []
 
         if self.system == 'reaction_diffusion':
-            index = random.choice(random.PRNGKey(key_num), shape=(self.IC_M,), a=self.xgrid, replace=False)
-            x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
-            data_grid_len = self.xgrid*self.nt
-            IC_sample_data_sol = eval_ui.reshape(data_grid_len, )[index]      #???????????????
-            IC_sample_data = jnp.concatenate((x[index].reshape(1,self.IC_M), jnp.zeros((1,self.IC_M))), axis=0).T
+          IC_sample_data_sol = Reaction_Diffusion(self.nu, self.rho).u0(IC_sample_data_x).reshape(self.IC_M,)
+
+
+
+        #     index = random.choice(random.PRNGKey(key_num), shape=(self.IC_M,), a=self.xgrid, replace=False)
+        #     x = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)
+        #     data_grid_len = self.xgrid*self.nt
+        #     IC_sample_data_sol = eval_ui.reshape(data_grid_len, )[index]      #???????????????
+        #     IC_sample_data = jnp.concatenate((x[index].reshape(1,self.IC_M), jnp.zeros((1,self.IC_M))), axis=0).T
 
         return pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi
 
@@ -217,7 +221,7 @@ class Data:
         data_grid_len = self.xgrid*self.nt
         xi = X_star[:,0].reshape(1,data_grid_len)
         ti = X_star[:,1].reshape(1,data_grid_len)
-        if self.system == "convection":
+        if self.system == "transport":
             ui = Transport_eq(self.beta).solution(xi, ti)
         elif self.system == "reaction_diffusion":
             xi = jnp.arange(self.x_min, self.x_max, self.x_max/self.xgrid)

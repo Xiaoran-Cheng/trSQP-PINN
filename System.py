@@ -30,8 +30,10 @@ class Reaction_Diffusion:
     
 
     def u0(self, x):
+        # x0 = jnp.pi
+        # sigma = 0.1
         x0 = jnp.pi
-        sigma = 0.1
+        sigma = 0.5
         return jnp.exp(-jnp.power((x - x0)/sigma, 2.)/2.)
 
 

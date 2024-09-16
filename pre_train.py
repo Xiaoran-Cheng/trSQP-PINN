@@ -11,10 +11,11 @@ import jaxopt
 import numpy as np
 from scipy.optimize import minimize
 import jax
-
+from jaxopt.tree_util import tree_l2_norm, tree_zeros_like, tree_add, tree_scalar_mul, tree_add_scalar_mul
+from tqdm import tqdm
 
 class PreTrain:
-    def __init__(self, model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui, pretrain_gtol, pretrain_ftol, num_params, params, nu, rho, alpha, system):
+    def __init__(self, model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui, pretrain_gtol, pretrain_ftol, pretrain_maxiter, nu, rho, alpha, system, num_params, params):
         self.model = model
         self.beta = beta
         self.pde_sample_data = pde_sample_data
@@ -32,6 +33,7 @@ class PreTrain:
         self.alpha = alpha
         self.pretrain_gtol = pretrain_gtol
         self.pretrain_ftol = pretrain_ftol
+        self.pretrain_maxiter = pretrain_maxiter
         self.system = system
         self.stop_optimization = False
         self.params_list = [np.zeros(num_params)]
@@ -49,7 +51,7 @@ class PreTrain:
 
     def IC_cons(self, params):
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
-        if self.system == "convection":
+        if self.system == "transport":
             return Transport_eq(beta=self.beta).solution(\
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
@@ -67,7 +69,7 @@ class PreTrain:
     
     
     def pde_cons(self, params):
-        if self.system == "convection":
+        if self.system == "transport":
             grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
             return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
                 jnp.diag(grad_x[:,:,1]))
@@ -124,16 +126,15 @@ class PreTrain:
         params_diff = self.params_list[-1] - self.params_list[-2]
         
 
-        loss_gradient1, _ = self.flatten_params(jacfwd(self.loss, 0)(params))
-        loss_gradient, _ = self.flatten_params(jacfwd(self.loss, 0)(self.unflatten_params(self.params_list[-2], treedef)))
+        # loss_gradient1, _ = self.flatten_params(jacfwd(self.loss, 0)(params))
+        # loss_gradient, _ = self.flatten_params(jacfwd(self.loss, 0)(self.unflatten_params(self.params_list[-2], treedef)))
 
-        self.params_list.pop(0)
+        # self.params_list.pop(0)
 
-        loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
+        # loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
 
-        print(loss_gradient_diff, jnp.linalg.norm(params_diff, ord=2))
-
-        if loss_gradient_diff <= self.pretrain_gtol or jnp.linalg.norm(params_diff, ord=2) <= self.pretrain_ftol:
+        # if loss_gradient_diff <= self.pretrain_gtol or jnp.linalg.norm(params_diff, ord=2) <= self.pretrain_ftol:
+        if jnp.linalg.norm(params_diff, ord=2) <= self.pretrain_ftol:
             self.stop_optimization = True
             raise TerminationCondition("Stopping criterion met")
 
@@ -146,11 +147,11 @@ class PreTrain:
         return absolute_error, l2_relative_error, u_theta
     
 
-    def update(self, params, pretrain_maxiter):
+    def update(self, params, pretrain_maxiter, pretrain_gtol):
         LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
                                 fun=self.loss, \
                                 maxiter=pretrain_maxiter, \
-                                options={'gtol': 0, 'ftol': 0}, \
+                                options={'gtol': pretrain_gtol, 'ftol': 0}, \
                                 callback=self.callback_func)
 
         try:
@@ -161,8 +162,31 @@ class PreTrain:
         return params
     
 
+    def lbfgs(self, params):
+        solver = jaxopt.LBFGS(fun=self.loss, maxiter=200000, tol = 1e-9)
+        res = solver.run(params)
+        # state = solver.init_state(params)
+        # prev_norm = 0
+        # prev_params = tree_zeros_like(params)
+        # for _ in tqdm(range(solver.maxiter)):
+        #     params, state = solver.update(params, state)
+        #     norm = state.error
+        #     norm_diff = jnp.absolute(norm - prev_norm)
+        #     params_diff = tree_l2_norm(tree_add_scalar_mul(params, -1, prev_params))
+        #     self.pretrain_loss_list.append(state.value)
+
+        #     if params_diff <= self.pretrain_ftol or norm_diff <= self.pretrain_gtol:
+        #         break
+
+        #     prev_params = params
+        #     prev_norm = norm
+        #     # print(tree_l2_norm(solver._value_and_grad_fun(params)[1]))
+        optimized_params, solver_state = res
+        return optimized_params
+
 class TerminationCondition(Exception):
     pass
+
 
 
 

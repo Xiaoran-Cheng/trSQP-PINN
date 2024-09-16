@@ -35,7 +35,7 @@ class PINN:
 
     def IC_cons(self, params):
         u_theta = self.model.u_theta(params=params, data=self.IC_sample_data)
-        if self.system == "convection":
+        if self.system == "transport":
             return Transport_eq(beta=self.beta).solution(\
                 self.IC_sample_data[:,0], self.IC_sample_data[:,1]) - u_theta
         elif self.system == "reaction_diffusion":
@@ -53,7 +53,7 @@ class PINN:
     
     
     def pde_cons(self, params):
-        if self.system == "convection":
+        if self.system == "transport":
             grad_x = jacfwd(self.model.u_theta, 1)(params, self.pde_sample_data)
             return Transport_eq(beta=self.beta).pde(jnp.diag(grad_x[:,:,0]),\
                 jnp.diag(grad_x[:,:,1]))

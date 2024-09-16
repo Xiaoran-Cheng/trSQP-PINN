@@ -1,4 +1,6 @@
 import time
+
+from jax._src.tree_util import treedef_tuple
 full_start_time = time.time()
 import sys
 import os
@@ -28,7 +30,7 @@ import jax
 import numpy as np
 import pandas as pd
 import random
-from numpy import linalg as LA
+from numpy import False_, linalg as LA
 from jax import jacfwd, hessian
 
 
@@ -67,54 +69,73 @@ class TerminationCondition(Exception):
     pass
 
 #######################################config for pre_train######################################
-Pre_Train = True                                                    #check                                                       #check
-pretrain_maxiter = 1000000
-pretrain_gtol = 1e-4
-pretrain_ftol = 1e-4
+Pre_Train = False                                 #check           
+pretrain_maxiter = 20000
+pretrain_gtol = 1e-9
+pretrain_ftol = 1e-9
 ######################################config for pre_train#######################################
 
 #######################################config for data#######################################
 error_df_list = []
 
-beta = 1
-nu = 3
-rho = 5
+beta = 30
+nu = 2
+rho = 20
 alpha = 10
 
-xgrid = 256
-nt = 100
+xgrid = 2560
+nt = 1000
 N = 1000
-IC_M, pde_M, BC_M = 5,5,5                            #check
-# IC_M, pde_M, BC_M = 3,3,3
+# IC_M, pde_M, BC_M = 50,50,50                           #check
+###reaction diffusion###
+IC_M, pde_M, BC_M = 2,3,2
+###reaction###
+# IC_M, pde_M, BC_M = 2,3,2
+###transport###
+# IC_M, pde_M, BC_M = 3,6,3
+
 M = IC_M + pde_M + BC_M
-data_key_num, sample_key_num = 100,1234
-# data_key_num, sample_key_num = 1000,1234
-# data_key_num, sample_key_num = 10000,1234
+###transport###
+# data_key_num, sample_key_num = 100,256
+# data_key_num, sample_key_num = 100,1000
+# data_key_num, sample_key_num = 100,45678
+###reaction###
+# data_key_num, sample_key_num = 44017,19219
+# data_key_num, sample_key_num = 3899,45678   #-40 train
+# data_key_num,  = 100,48206  # pretrain   -50
+# data_key_num, sample_key_num = 4325,45678
+# data_key_num, sample_key_num = 18256, 45678  # -50 train
+###reaction diffusion###
+# data_key_num, sample_key_num = 107,45678   #pretrain
+data_key_num, sample_key_num = 107,100   #train
 x_min = 0
 x_max = 2*jnp.pi
 t_min = 0
 t_max = 1
 noise_level = 0.01                                                       #check
-system = "convection"                                            #check
+system = "reaction_diffusion"                                            #check
 ####################################### config for data #######################################
 
 ####################################### config for NN #######################################
+###transport###
 NN_key_num = 345
+# NN_key_num = 3564
+###reaction###
 # NN_key_num = 7654
-features = [50,50,50,50,1]  
+
+features = [10,10,10,10,1]
 num_params = calculate_mlp_params(features[:-1])
 ###################################### config for NN #######################################
 
 ####################################### config for unconstrained optim #######################################
-LBFGS_maxiter = pretrain_maxiter
-max_iter_train = 11                                                       #check
+LBFGS_maxiter = 20000
+max_iter_train = 101                                                       #check
 
-penalty_param_update_factor = 2
-init_penalty_param = 1                                                    #check
-panalty_param_upper_bound = penalty_param_update_factor**max_iter_train
+penalty_param_update_factor = 1.1
+init_penalty_param = 2                                                    #check
 
-LBFGS_gtol = 1e-4
-LBFGS_ftol = 1e-4
+LBFGS_gtol = 1e-9
+LBFGS_ftol = 1e-9
 
 init_mul = jnp.zeros(M)
 ####################################### config for unconstrained optim #####################################
@@ -124,16 +145,15 @@ visual = Visualization(current_dir)
 ####################################### visualization #######################################
 
 ####################################### config for SQP #######################################
-x_diff_tol = 1e-4
-kkt_tol = 1e-4
+x_diff_tol = 1e-9
+kkt_tol = 1e-9
 B0 = jnp.identity(num_params)
-sqp_maxiter = 100000
+sqp_maxiter = 20000
 L_m = 10
-hessian_method = "dBFGS"
-sqp_initial_constr_penalty = 0.5
+hessian_method = "SR1"
+sqp_initial_constr_penalty = 1
 sqp_initial_tr_radius = 1
 ####################################### config for SQP #######################################
-
 
 activation_input = "tanh"
 
@@ -159,7 +179,7 @@ elif activation_input == "identity":
 activation_name = activation.__name__
 model = NN(features=features, activation=activation)
 
-test_now = "NN_depth_test_{depth}".format(depth=len(features) - 1)
+test_now = "width_test_{width}".format(width=features[0])
 
 x = jnp.arange(x_min, x_max, x_max/xgrid)
 t = jnp.linspace(t_min, t_max, nt).reshape(-1, 1)
@@ -177,12 +197,18 @@ shapes, sizes = zip(*shapes_and_sizes)
 indices = jnp.cumsum(jnp.array(sizes)[:-1])
 _, treedef = flatten_params(params)
 
-if Pre_Train:
 
+print(np.sum((data[:, 0] >= jnp.pi-0.2) & (data[:, 0] <= jnp.pi+0.2)).item())
+print(np.sum((pde_sample_data[:, 0] >= jnp.pi-0.2) & (pde_sample_data[:, 0] <= jnp.pi+0.2)).item())
+print(np.sum((IC_sample_data[:, 0] > jnp.pi-0.2) & (IC_sample_data[:, 0] < jnp.pi+0.2)).item())
+
+
+if Pre_Train:
     pretrain_path = "{current_dir}/pre_result/{test}/".format(\
                         test=test_now, current_dir=current_dir)
-    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], pretrain_gtol, pretrain_ftol, num_params, params, nu, rho, alpha, system)
-    _ = pretrain.update(params, pretrain_maxiter)
+    pretrain = PreTrain(model, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, beta, eval_data, eval_ui[0], pretrain_gtol, pretrain_ftol, pretrain_maxiter, nu, rho, alpha, system, num_params, params)
+    _ = pretrain.update(params, pretrain_maxiter, pretrain_gtol)
+    # params = pretrain.lbfgs(params)
     params = unflatten_params(pretrain.params_list[-1], treedef)
     absolute_error, l2_relative_error, eval_u_theta = pretrain.evaluation(\
                                 params, eval_data, eval_ui[0])
@@ -201,15 +227,17 @@ if Pre_Train:
                 'experiment': "pre_train", \
                 'absolute_error': [absolute_error], \
                 'l2_relative_error': [l2_relative_error], \
-                'depth': [len(features) - 1], \
+                'width': [features[0]], \
+                'sample_key_num': [sample_key_num],\
                 }).to_csv(pretrain_path+"error_{test}.csv".format(test=test_now), index=False, mode="a")
     end_time = time.time()
     print(f"Execution Time: {(end_time - full_start_time)/60} minutes")
 
 else:
-    experiment_list = ['SQP_experiment']
-    # experiment_list = ['l2^2_Penalty_experiment','Augmented_Lag_experiment']
-    # experiment_list = ['Augmented_Lag_experiment']
+    experiment_list = ['penalty','ALM','SQP']
+    # experiment_list = ['penalty']
+    # experiment_list = ['ALM']
+    # experiment_list = ['SQP']
 
     for experiment in experiment_list:
         print(experiment)
@@ -218,13 +246,14 @@ else:
         data_frame_path = "{current_dir}/result/{test}/{experiment}_dataframes".format(experiment=experiment, \
                                                         test=test_now, current_dir=current_dir)
         check_path(data_frame_path)
-        if experiment == "SQP_experiment":
+        if experiment == "SQP":
             intermediate_data_frame_path = data_frame_path+"/intermediate_SQP_params/"
             check_path(intermediate_data_frame_path)
         #############
         # params = model.init_params(NN_key_num=NN_key_num, data=data)        #check
 
         init_path = f"pretrain_params_{test_now}.pkl"
+        # init_path = "pretrain_params_hessian_test.pkl"
         print(init_path)
         params = pd.read_pickle(init_path).values.flatten()     #check
         params = unflatten_params(params, treedef)
@@ -232,7 +261,7 @@ else:
         penalty_param = init_penalty_param
         mul = init_mul
 
-        if experiment == "SQP_experiment":
+        if experiment == "SQP":
             sqp_optim = SQP_Optim(model, params, beta, eval_data, eval_ui, nu, rho, alpha, system, intermediate_data_frame_path)
             x0 = flatten_params(params)[0]
             grad0 = sqp_optim.grad_objective(x0, treedef, data, ui)
@@ -254,22 +283,23 @@ else:
             total_l_k_loss_list = sqp_optim.total_l_k_loss_list
             total_eq_cons_loss_list = sqp_optim.total_eq_cons_loss_list
             kkt_residual = sqp_optim.kkt_residual
-            kkt_diffs = sqp_optim.kkt_diff
+            # kkt_diffs = sqp_optim.kkt_diff
             x_diffs = sqp_optim.x_diff
             absolute_error_iter, l2_relative_error_iter = sqp_optim.absolute_error_iter, sqp_optim.l2_relative_error_iter
             time_iter = sqp_optim.time_iter
         else:
-            if experiment == "l2^2_Penalty_experiment":                           # check
+            if experiment == "penalty":                           # check
                 loss = PINN(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                             N, nu, rho, alpha, system)
-            elif experiment == "Augmented_Lag_experiment":
+            elif experiment == "ALM":
                 loss = AugLag(model, data, pde_sample_data, IC_sample_data, IC_sample_data_sol, BC_sample_data_zero, BC_sample_data_2pi, ui[0], beta, \
                             N, nu, rho, alpha, system)
             
             total_loss_list, total_eq_cons_loss_list, total_l_k_loss_list, absolute_error_iter, l2_relative_error_iter, time_iter = [], [], [], [], [], []
-            optim = Optim(model, loss)
+            optim = Optim(model, loss, LBFGS_maxiter, LBFGS_gtol, LBFGS_ftol, total_l_k_loss_list, \
+                 total_eq_cons_loss_list, absolute_error_iter, l2_relative_error_iter, total_loss_list, time_iter, data, ui)
             params_list = [np.zeros(num_params)]
-            if experiment == "Augmented_Lag_experiment":
+            if experiment == "ALM":
                 def callback_func(params):
                     total_loss_list.append(loss.loss(params, mul, penalty_param).item())
                     total_l_k_loss_list.append(loss.l_k(params).item())
@@ -285,12 +315,13 @@ else:
                     params_diff = params_list[-1] - params_list[-2]
 
 
-                    loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, mul, penalty_param))
-                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), mul, penalty_param))
+                    # loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, mul, penalty_param))
+                    # loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), mul, penalty_param))
                     params_list.pop(0)
-                    loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
+                    # loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
 
-                    if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+                    # if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+                    if jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
                         optim.stop_optimization = True
                         raise Exception("Stopping criterion met")
         
@@ -311,24 +342,20 @@ else:
                     params_diff = params_list[-1] - params_list[-2]
 
 
-                    loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, penalty_param))
-                    loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), penalty_param))
+                    # loss_gradient1, _ = flatten_params(jacfwd(loss.loss, 0)(params, penalty_param))
+                    # loss_gradient, _ = flatten_params(jacfwd(loss.loss, 0)(unflatten_params(params_list[-2], treedef), penalty_param))
                     params_list.pop(0)
-                    loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
+                    # loss_gradient_diff = jnp.absolute(jnp.linalg.norm(loss_gradient1, ord=2) - jnp.linalg.norm(loss_gradient, ord=2))
 
-                    print(loss_gradient_diff, jnp.linalg.norm(params_diff, ord=2))
-
-                    if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+                    # if loss_gradient_diff <= LBFGS_gtol or jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
+                    if jnp.linalg.norm(params_diff, ord=2) <= LBFGS_ftol:
                         optim.stop_optimization = True
                         raise TerminationCondition("Stopping criterion met")
                         
-                    
-
-
             LBFGS_opt = jaxopt.ScipyMinimize(method='L-BFGS-B', \
                             fun=loss.loss, \
                             maxiter=LBFGS_maxiter, \
-                            options={'gtol': 0, 'ftol': 0}, \
+                            options={'gtol': LBFGS_gtol, 'ftol': 0}, \
                             callback=callback_func)
 
             
@@ -338,36 +365,56 @@ else:
             start_time = time.time()
             penalty_param_list = []
             penalty_param_list.append(penalty_param)
-            for _ in tqdm(range(max_iter_train)):
-                if experiment == "Augmented_Lag_experiment":
+            for rounds in tqdm(range(max_iter_train)):
+                # print(f"round: {rounds}")
+                if experiment == "ALM":
                     print(mul)
                     mul_new = mul + penalty_param * loss.eq_cons(params)
-                    # total_loss_list_pernalty_change.append(loss.loss(params, mul, penalty_param).item())
-                # else:
-                    # total_loss_list_pernalty_change.append(loss.loss(params, penalty_param).item())
+
                 try:
                     _, _ = \
                         optim.update(params, penalty_param, experiment, \
                                             mul, LBFGS_opt)
-                except Exception as ex:
-                    print(str(ex))
                     params = unflatten_params(params_list[-1], treedef)
                     penalty_param = penalty_param_update_factor * penalty_param
-                    # total_l_k_loss_list_pernalty_change.append(loss.l_k(params).item())
-                    # total_eq_cons_loss_list_pernalty_change.append(jnp.square(jnp.linalg.norm(loss.eq_cons(params), ord=2)).item())
-                    # u_theta = model.u_theta(params=params, data=eval_data)
-                    # absolute_error_pernalty_change.append(jnp.mean(np.abs(u_theta-eval_ui)))
-                    # l2_relative_error_pernalty_change.append(jnp.linalg.norm((u_theta-eval_ui[0]), ord = 2) / jnp.linalg.norm((eval_ui[0]), ord = 2))
-                    if experiment == "Augmented_Lag_experiment":
+                    if experiment == "ALM":
                         mul = mul_new
                     print("penalty_param: ", str(penalty_param/penalty_param_update_factor))
                     print("Number of iterations:", str(len(total_loss_list)))
+
+                    absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
+                                                    params, eval_data, eval_ui[0])
+                    print(f"absolute error: {absolute_error}")
+                    print(f"relative error: {l2_relative_error}")
+                    
+                except Exception as ex:
+                    params = unflatten_params(params_list[-1], treedef)
+                    penalty_param = penalty_param_update_factor * penalty_param
+                    if experiment == "ALM":
+                        mul = mul_new
+                    print("penalty_param: ", str(penalty_param/penalty_param_update_factor))
+                    print("Number of iterations:", str(len(total_loss_list)))
+
+
+                    absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
+                                                    params, eval_data, eval_ui[0])
+                    print(f"absolute error: {absolute_error}")
+                    print(f"relative error: {l2_relative_error}")
+
                     continue
 
-            absolute_error, l2_relative_error, eval_u_theta = optim.evaluation(\
-                                            params, eval_data, eval_ui[0])
+                # params = optim.lbfgs(params, penalty_param, experiment, mul, start_time)
+                # penalty_param = penalty_param_update_factor * penalty_param
+                # if experiment == "ALM":
+                    # mul = mul_new
+                # print("penalty_param: ", str(penalty_param/penalty_param_update_factor))
+                # print("Number of iterations:", str(len(total_loss_list)))
 
-        if experiment != "SQP_experiment":
+
+
+
+
+        if experiment != "SQP":
             print("total_loss_list")
             visual.line_graph(total_loss_list, test_now, "Total_Loss", experiment=experiment)
             # print("absolute_error_pernalty_change")
@@ -399,11 +446,11 @@ else:
         visual.line_graph(total_eq_cons_loss_list, test_now,"Total_eq_cons_Loss", experiment=experiment)
         print("Total_l_k_Loss")
         visual.line_graph(total_l_k_loss_list, test_now,"Total_l_k_Loss", experiment=experiment)
-        if experiment == "SQP_experiment":
+        if experiment == "SQP":
             print("KKT_residual")
             visual.line_graph(kkt_residual, test_now,"KKT_residual", experiment=experiment)
-            print("KKT_diff")
-            visual.line_graph(kkt_diffs, test_now,"kkt_diffs", experiment=experiment)
+            # print("KKT_diff")
+            # visual.line_graph(kkt_diffs, test_now,"kkt_diffs", experiment=experiment)
             print("x_diff")
             visual.line_graph(x_diffs, test_now,"x_diffs", experiment=experiment)
         print("True_sol_line")
@@ -416,9 +463,9 @@ else:
         visual.line_graph(absolute_error_iter, test_now,"absolute_error_per_iter", experiment=experiment)
         print("l2_relative_error_iter")
         visual.line_graph(l2_relative_error_iter, test_now,"l2_relative_error_per_iter", experiment=experiment)
-        if experiment != "SQP_experiment":
+        if experiment != "SQP":
             print("last loss: "+str(total_loss_list[-1]))
-        if experiment == "SQP_experiment":
+        if experiment == "SQP":
             print("last KKT residual: " + str(kkt_residual[-1]))
         print("absolute_error: " + str(absolute_error))
         print("l2_relative_error: " + str(l2_relative_error))
@@ -433,7 +480,7 @@ else:
                                                     test=test_now))
         pd.DataFrame(total_eq_cons_loss_list).to_pickle(data_frame_path+"/total_eq_cons_loss_list_{experiment}_{test}.pkl".format(experiment=experiment, \
                                                     test=test_now))
-        if experiment == "SQP_experiment":
+        if experiment == "SQP":
             pd.DataFrame(kkt_residual).to_pickle(data_frame_path+"/kkt_residual_list_{experiment}_{test}.pkl".format(experiment=experiment, \
                                                     test=test_now))
         pd.DataFrame(absolute_error_iter).to_pickle(data_frame_path+"/absolute_error_iter_{experiment}_{test}.pkl".format(experiment=experiment, \
@@ -442,7 +489,7 @@ else:
                                                     test=test_now))
         pd.DataFrame(time_iter).to_pickle(data_frame_path+"/time_iter_{experiment}_{test}.pkl".format(experiment=experiment, \
                                                     test=test_now))
-        if experiment != "SQP_experiment":
+        if experiment != "SQP":
             # pd.DataFrame(total_loss_list_pernalty_change).to_pickle(data_frame_path+"/total_loss_list_pernalty_change_{experiment}_{test}.pkl".format(experiment=experiment, \
             #                                         test=test_now))
             pd.DataFrame(total_loss_list).to_pickle(data_frame_path+"/total_loss_list{experiment}_{test}.pkl".format(experiment=experiment, \
@@ -462,7 +509,9 @@ else:
                                 'experiment': [experiment], \
                                 'absolute_error': [absolute_error], \
                                 'l2_relative_error': [l2_relative_error], \
-                                'depth': [len(features) - 1], \
+                                'width': [features[0]], \
+                                'data_key_num': [data_key_num], \
+                                'sample_key_num': [sample_key_num],\
                                 'iterations': [len(time_iter)], \
                                 'time_usage':[time_iter[-1]], \
                                 'iteration_point_check': [iteration_point_check_convergence], \
@@ -477,7 +526,9 @@ else:
                             'experiment': [experiment], \
                             'absolute_error': [absolute_error], \
                             'l2_relative_error': [l2_relative_error], \
-                            'depth': [len(features) - 1], \
+                            'width': [features[0]], \
+                            'data_key_num': [data_key_num], \
+                            'sample_key_num': [sample_key_num],\
                             'iterations': [len(time_iter)], \
                             'time_usage':[time_iter[-1]], \
                             'iteration_point_check': [iteration_point_check_convergence], \
